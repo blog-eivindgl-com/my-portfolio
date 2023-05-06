@@ -1,7 +1,9 @@
 import { FC } from 'react';
+import Link from 'next/link';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { stocksTable } from '../database/database.config';
 import { useState } from 'react';
+import next from 'next/types';
 
 const StocksList: FC = () => {
     const [ticker, setTicker] = useState('');
@@ -15,7 +17,10 @@ const StocksList: FC = () => {
         name: <input title="Search" type="text" value={name} onChange={(e) => setName(e.target.value)} />
         <ul>
         {stock?.map(stock => <li key={stock.ticker}>
-            {stock.name}
+            <Link href={{
+                pathname: "/stocks/transactions",
+                query: { ticker: stock.ticker}
+            }}>{stock.name}</Link>
         </li>)}
         </ul>
     </div>

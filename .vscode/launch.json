@@ -21,15 +21,18 @@
             "timeout": 30000
         },
         {
-            "type": "node",
+            "name": "Launch Next DEV server",
             "request": "launch",
-            "name": "yarn",
             "runtimeExecutable": "yarn",
             "runtimeArgs": [
-              "dev"
+              "run dev",
             ],
-            "cwd": "${workspaceRoot}",
-            "timeout": 10000
-          }
+            "type": "node",
+            "serverReadyAction": {
+              "action": "debugWithChrome",
+              "pattern": "Local: http://localhost:([0-9]+)",
+              "uriFormat": "http://localhost:%s"
+            }
+          },
     ]
 }

@@ -14,11 +14,11 @@ export enum TransactionType {
 }
 
 export interface ITransaction {
-    id: number, 
+    id?: number, 
     type: TransactionType, 
     ticker: string, 
     accountId: number, 
-    date: Date, 
+    date: number, 
     description: string, 
     shares: number, 
     price: number, 
