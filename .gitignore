@@ -10,7 +10,7 @@
 
 # next.js
 /.next/
-/out/
+#/out/ # Azure Static Web App fails to deploy nextjs build output, so use the 'upload' action instead pointing to the out directory
 
 # production
 /build
