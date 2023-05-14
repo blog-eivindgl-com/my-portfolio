@@ -1,6 +1,7 @@
 import type { FC } from 'react';
-import { transactionsTable } from '../database/database.config';
-import { ITransaction } from '../database/types/types';
+import { transactionsTable } from '../../../../database/database.config';
+import { ITransaction } from '../../../../database/types/types';
+import { Container } from '@nextui-org/react';
 
 const TransactionForm: FC = () => {
     const createTransaction = async (event: any) => {
@@ -23,7 +24,7 @@ const TransactionForm: FC = () => {
             console.error(`Failed to create ${transaction}: ${error}`);
         }
     }
-    return <div>
+    return <Container>
         <h1>Create transaction</h1>
         <form onSubmit={createTransaction}>
             <label htmlFor="date">Date:</label><br />
@@ -47,7 +48,7 @@ const TransactionForm: FC = () => {
             <input type="text" id="brokerage" name="brokerage" /><br /> <br />
             <button type="submit">Create</button>
         </form>
-    </div>
+    </Container>
 }
 
 export default TransactionForm;

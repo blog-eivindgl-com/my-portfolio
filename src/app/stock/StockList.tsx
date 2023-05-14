@@ -1,29 +1,28 @@
 import { FC } from 'react';
 import Link from 'next/link';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { stocksTable } from '../database/database.config';
+import { stockTable } from '../database/database.config';
 import { useState } from 'react';
-import next from 'next/types';
+import { Container } from '@nextui-org/react'
 
 const StocksList: FC = () => {
     const [ticker, setTicker] = useState('');
     const [name, setName] = useState('');
     const stock = useLiveQuery(
-        () => stocksTable.where("name").startsWithIgnoreCase(name).toArray(),
+        () => stockTable.where("name").startsWithIgnoreCase(name).toArray(),
         [name]
     );
-    return <div>
-        <h2>Stocks</h2>
+    return (
+        <Container>
+        <h2>Stock</h2>
         name: <input title="Search" type="text" value={name} onChange={(e) => setName(e.target.value)} />
         <ul>
         {stock?.map(stock => <li key={stock.ticker}>
-            <Link href={{
-                pathname: "/stocks/transactions",
-                query: { ticker: stock.ticker}
-            }}>{stock.name}</Link>
+            <Link href={`/stock/transactions/${stock.ticker}`}>{stock.name}</Link>
         </li>)}
         </ul>
-    </div>
+        </Container>
+    );
 }
 
 export default StocksList;

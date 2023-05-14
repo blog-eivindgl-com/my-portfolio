@@ -1,8 +1,8 @@
 import { FC } from 'react';
 import Link from 'next/link';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { transactionsTable } from '../database/database.config';
-import { ITransaction, TransactionType } from '@/database/types/types';
+import { transactionsTable } from '../../../database/database.config';
+import { ITransaction, TransactionType } from '../../../database/types/types';
 
 type Props = {
     ticker: string
@@ -16,10 +16,7 @@ const TransactionsList: FC<Props> = ({ticker}: Props) => {
         <h2>Transactions</h2>
         <ul>
         {transactions?.map(transaction => <li key={transaction.id}>
-            <Link href={{
-                pathname: "/stocks/transaction/[id]",
-                query: { id: transaction.id}
-            }}>
+            <Link href={`/stocks/transaction/${transaction.id}`}>
                 {new Date(transaction.date).toLocaleDateString()}, 
                 {transaction.description}, 
                 {(transaction.type.toString() === 'buy') ? '' :' -'}

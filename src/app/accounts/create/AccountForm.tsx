@@ -1,6 +1,7 @@
 import type { FC } from 'react';
-import { accountsTable } from '../database/database.config';
-import { IAccount } from '../database/types/types';
+import { accountsTable } from '../../database/database.config';
+import { IAccount } from '../../database/types/types';
+import { Container } from '@nextui-org/react';
 
 const AccountForm: FC = () => {
     const createAccount = async (event: any) => {
@@ -15,14 +16,14 @@ const AccountForm: FC = () => {
             console.error(`Failed to create ${account}: ${error}`);
         }
     }
-    return <div>
+    return <Container>
         <h1>Create account</h1>
         <form onSubmit={createAccount}>
             <label htmlFor="name">Name:</label><br />
             <input type="text" id="name" name="name" /><br /> <br />
             <button type="submit">Create</button>
         </form>
-    </div>
+    </Container>
 }
 
 export default AccountForm;

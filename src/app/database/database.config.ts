@@ -7,7 +7,7 @@ database.version(1).stores({
     transactions: '++id, type, ticker, accountId, date, description, shares, price, brokerage'
 });
 
-export const stocksTable = database.table('stocks');
+export const stockTable = database.table('stocks');
 export const accountsTable = database.table('accounts');
 export const transactionsTable = database.table('transactions');
 

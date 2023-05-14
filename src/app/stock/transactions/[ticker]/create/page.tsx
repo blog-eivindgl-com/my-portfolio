@@ -1,4 +1,5 @@
-import TransactionForm from '../../components/TransactionForm'
+"use client"
+import TransactionForm from './TransactionForm'
 
 function Create() {
     return (
