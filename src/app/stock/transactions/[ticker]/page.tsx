@@ -6,7 +6,13 @@ import { stockTable } from '../../../database/database.config';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { IStock } from '../../../database/types/types';
 
-function Transactions({params}: {params: { ticker: string}}) {
+export async function generateStaticParams() {
+    return (await stockTable.toArray()).map((value: IStock) => ({
+        ticker: value.ticker
+    }));
+}
+
+function Transactions({params}: {params: { ticker: string }}) {
     const {ticker} = params;
     const stock: IStock | undefined = useLiveQuery(
         () => stockTable.where("ticker").equalsIgnoreCase(ticker).first(),
