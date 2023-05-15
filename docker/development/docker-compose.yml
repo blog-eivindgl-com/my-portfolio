@@ -1,0 +1,10 @@
+version: '3'
+
+services:
+  my-portfolio-service-development:
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+    image: my-portfolio-development
+    ports:
+      - '3001:3000'
