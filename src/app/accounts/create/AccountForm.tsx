@@ -7,6 +7,7 @@ const AccountForm: FC = () => {
     const createAccount = async (event: any) => {
         event.preventDefault();
         const account: IAccount = {
+            id: crypto.randomUUID(),
             name: event.target.name.value
         }
         try {
