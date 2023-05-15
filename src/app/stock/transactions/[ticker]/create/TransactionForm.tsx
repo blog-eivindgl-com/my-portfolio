@@ -3,16 +3,21 @@ import { transactionsTable } from '../../../../database/database.config';
 import { ITransaction } from '../../../../database/types/types';
 import { Container } from '@nextui-org/react';
 
-const TransactionForm: FC = () => {
+interface ITransactionFormProps {
+    ticker: string
+}
+
+const TransactionForm: FC<ITransactionFormProps> = ({ticker}) => {
     const createTransaction = async (event: any) => {
         event.preventDefault();
         console.log(event.target.date.value);
         const transaction: ITransaction = {
+            id: crypto.randomUUID(),
             date: new Date(event.target.date.value).getTime(),
             type: event.target.type.value,
             description: event.target.type.description,
             accountId: event.target.type.accountId,
-            ticker: event.target.ticker.value,
+            ticker: ticker,
             shares: event.target.shares.value,
             price: event.target.price.value,
             brokerage: event.target.brokerage.value
@@ -38,8 +43,6 @@ const TransactionForm: FC = () => {
             <input type="text" id="description" name="description" /><br /> <br />
             <label htmlFor="accountId">Account:</label><br />
             <input type="text" id="accountId" name="accountId" /><br /> <br />
-            <label htmlFor="ticker">Ticker:</label><br />
-            <input type="text" id="ticker" name="ticker" /><br /> <br />
             <label htmlFor="shares">Shares:</label><br />
             <input type="text" id="shares" name="shares" /><br /> <br />
             <label htmlFor="price">Price:</label><br />

@@ -4,7 +4,7 @@ export interface IStock {
 }
 
 export interface IAccount {
-    id?: number,
+    id: string,
     name: string
 }
 
@@ -14,7 +14,7 @@ export enum TransactionType {
 }
 
 export interface ITransaction {
-    id?: number, 
+    id: string, 
     type: TransactionType, 
     ticker: string, 
     accountId: number, 

@@ -3,8 +3,8 @@ import Dexie from "dexie";
 const database = new Dexie("my-portfolio");
 database.version(1).stores({
     stocks: 'ticker, name',
-    accounts: '++id, name',
-    transactions: '++id, type, ticker, accountId, date, description, shares, price, brokerage'
+    accounts: 'id, name',
+    transactions: 'id, timestamp, type, ticker, accountId, date, description, shares, price, brokerage'
 });
 
 export const stockTable = database.table('stocks');

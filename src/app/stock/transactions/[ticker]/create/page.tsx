@@ -1,10 +1,10 @@
 "use client"
 import TransactionForm from './TransactionForm'
 
-function Create() {
+function Create({params}: {params: { ticker: string }}) {
     return (
     <div>
-        <TransactionForm />
+        <TransactionForm ticker={params.ticker} />
     </div>
     );
 }
