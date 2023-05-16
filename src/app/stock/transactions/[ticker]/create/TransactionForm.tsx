@@ -50,9 +50,9 @@ const TransactionForm: FC<ITransactionFormProps> = ({ticker}) => {
             description: event.target.elements['description'].value,
             accountId: getSelectedAccount(selectedAccountIdMemo)?.id || "",
             ticker: ticker,
-            shares: event.target.shares.value,
-            price: event.target.price.value,
-            brokerage: event.target.brokerage.value
+            shares: Number(event.target.shares.value),
+            price: Number(event.target.price.value),
+            brokerage: Number(event.target.brokerage.value)
         }
         try {
             const ticker = await transactionsTable.add(transaction);

@@ -14,6 +14,7 @@ export enum TransactionType {
 }
 
 export interface ITransaction {
+    [key: string]: any,
     id: string, 
     type: TransactionType, 
     ticker: string, 
