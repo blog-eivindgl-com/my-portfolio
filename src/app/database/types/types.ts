@@ -17,7 +17,7 @@ export interface ITransaction {
     id: string, 
     type: TransactionType, 
     ticker: string, 
-    accountId: number, 
+    accountId: string, 
     date: number, 
     description: string, 
     shares: number, 

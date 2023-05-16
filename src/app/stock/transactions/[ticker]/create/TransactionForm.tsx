@@ -1,22 +1,54 @@
-import type { FC } from 'react';
-import { transactionsTable } from '../../../../database/database.config';
-import { ITransaction } from '../../../../database/types/types';
+"use client"
+import { FC, Key, useEffect, useMemo } from 'react';
+import { useState } from 'react';
+import { Selection } from '@react_types/shared';
+import { Button, Dropdown, DropdownSectionProps, Input, Radio, Switch } from '@nextui-org/react';
+import { accountsTable, transactionsTable } from '../../../../database/database.config';
+import { IAccount, ITransaction, TransactionType } from '../../../../database/types/types';
 import { Container } from '@nextui-org/react';
+import { useLiveQuery } from 'dexie-react-hooks';
 
 interface ITransactionFormProps {
     ticker: string
 }
 
 const TransactionForm: FC<ITransactionFormProps> = ({ticker}) => {
+    const [transactionType, setTransactionType] = useState(TransactionType.buy);
+    const [date, setDate] = useState(new Date());
+    const [accounts, setAccounts] = useState<IAccount[]>([]);
+    const [selectedAccountId, setSelectedAccountId] = useState<Selection>(new Set(['']));
+    useEffect(() => {
+        async function loadAccounts() {
+            const accounts: IAccount[] = await accountsTable.toArray();
+            setAccounts(accounts);
+        }
+        loadAccounts();
+    }, []);
+    const selectedAccountIdMemo = useMemo(
+        () => Array.from(selectedAccountId).join(','),
+        [selectedAccountId],
+      );
+    function getSelectedAccount(id: string | null): IAccount | undefined {
+        return accounts.find((v) => v.id === id);
+    }
+    function handleTransactionTypeChanged(key: string) {
+        switch(key) {
+            case 'buy':
+                setTransactionType(TransactionType.buy);
+                break;
+            case 'sell':
+                setTransactionType(TransactionType.sell);
+                break;
+        }
+    }
     const createTransaction = async (event: any) => {
         event.preventDefault();
-        console.log(event.target.date.value);
         const transaction: ITransaction = {
             id: crypto.randomUUID(),
             date: new Date(event.target.date.value).getTime(),
-            type: event.target.type.value,
-            description: event.target.type.description,
-            accountId: event.target.type.accountId,
+            type: transactionType,
+            description: event.target.elements['description'].value,
+            accountId: getSelectedAccount(selectedAccountIdMemo)?.id || "",
             ticker: ticker,
             shares: event.target.shares.value,
             price: event.target.price.value,
@@ -32,24 +64,33 @@ const TransactionForm: FC<ITransactionFormProps> = ({ticker}) => {
     return <Container>
         <h1>Create transaction</h1>
         <form onSubmit={createTransaction}>
-            <label htmlFor="date">Date:</label><br />
-            <input type="date" id="date" name="date" /><br /><br />
-            <label htmlFor="type">Buy or sell:</label><br />
-            <select id="type" name="type">
-                <option value="buy">Buy</option>
-                <option value="sell">Sell</option>
-            </select><br /> <br />
-            <label htmlFor="description">Description:</label><br />
-            <input type="text" id="description" name="description" /><br /> <br />
-            <label htmlFor="accountId">Account:</label><br />
-            <input type="text" id="accountId" name="accountId" /><br /> <br />
-            <label htmlFor="shares">Shares:</label><br />
-            <input type="text" id="shares" name="shares" /><br /> <br />
-            <label htmlFor="price">Price:</label><br />
-            <input type="text" id="price" name="price" /><br /> <br />
-            <label htmlFor="brokerage">Brokerage:</label><br />
-            <input type="text" id="brokerage" name="brokerage" /><br /> <br />
-            <button type="submit">Create</button>
+            <Radio.Group 
+            orientation="horizontal" 
+            defaultValue='buy'
+            onChange={handleTransactionTypeChanged}>
+                <Radio value="buy" color="success" labelColor='success'>Buy</Radio>
+                <Radio value="sell" color="error" labelColor='error'>Sell</Radio>
+            </Radio.Group><br />
+            <Input label='Date:' type="date" id="date" name="name" defaultValue={new Date().getDate().toString()} /><br /><br />
+            <Input label='Description:' type="text" id="description" name="description" /><br /><br />
+            <Dropdown>
+                <Dropdown.Button flat aria-label='Account'>{getSelectedAccount(selectedAccountIdMemo)?.name || "Account"}</Dropdown.Button>
+                <Dropdown.Menu 
+                disallowEmptySelection 
+                selectionMode='single'
+                selectedKeys={selectedAccountId} 
+                onSelectionChange={setSelectedAccountId}>
+                    {accounts.map((account) => (
+                    <Dropdown.Item key={account.id}>
+                        {account.name}
+                    </Dropdown.Item>
+                    ))}
+                </Dropdown.Menu>
+            </Dropdown><br /><br />
+            <Input label='Shares:' type="text" id="shares" name="shares" /><br /> <br />
+            <Input label='Price:' type="text" id="price" name="price" /><br /> <br />
+            <Input label='Brokerage:' type="text" id="brokerage" name="brokerage" /><br /> <br />
+            <Button type="submit">Create</Button>
         </form>
     </Container>
 }
