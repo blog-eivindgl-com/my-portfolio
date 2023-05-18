@@ -1,13 +1,13 @@
 "use client"
 import { FC } from 'react';
-import Link from 'next/link';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { transactionsTable } from '../../../database/database.config';
-import { ITransaction, TransactionType } from '../../../database/types/types';
+import { ITransaction } from '../../../database/types/types';
 import { Container, Table } from '@nextui-org/react';
-import TransactionViewModel from '@/app/viewmodel/transactions/TransactionViewModel';
 import TransactionListViewModel from '@/app/viewmodel/transactions/TransactionListViewModel';
 import TransactionService from '@/app/services/TransactionService';
+import PriceListService from '@/app/services/PriceListService';
+import DbService from '@/app/services/DbService';
 
 type Props = {
     ticker: string
@@ -72,7 +72,11 @@ const TransactionsList: FC<Props> = ({ticker}: Props) => {
             label: 'Realized win/loss'
         }
     ]
-    const vm: TransactionListViewModel = new TransactionService().getTransactionListViewModel(transactions);
+    const dbService = new DbService();
+    const priceListService = new PriceListService(dbService);
+    const transactionService = new TransactionService(priceListService);
+    const priceList = priceListService.getPriceListForStock(ticker);
+    const vm: TransactionListViewModel = transactionService.getTransactionListViewModel(transactions, priceList);
     console.log(vm);
     return <Container>
         <h2>Transactions</h2>

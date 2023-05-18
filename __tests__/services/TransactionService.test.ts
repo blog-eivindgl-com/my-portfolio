@@ -1,57 +1,74 @@
-import { ITransaction } from "@/app/database/types/types";
+import { IPriceList, ITransaction } from "@/app/database/types/types";
+import DbService from "../../src/app/services/DbService";
+import PriceListService from "@/app/services/PriceListService";
 import TransactionService from "@/app/services/TransactionService";
-import TransactionListViewModel from "@/app/viewmodel/transactions/TransactionListViewModel";
-import exp from "constants";
+
+jest.mock("../../src/app/services/DbService");
+
+const testTransactionsForTickerSalme: ITransaction[] = [
+    {
+        "id": "1d8ef955-7744-40c1-88d4-8eddef86669e",
+        "date": 1683504000000,  // 8.5.2023
+        "type": 0,
+        "description": "Kjøp i Salmon Evolution",
+        "accountId": "5d6d80c7-cc32-43ea-bb46-2af800f026f3",
+        "ticker": "SALME",
+        "shares": 12,
+        "price": 7,
+        "brokerage": 79
+    },
+    {
+        "id": "b4aae0e3-af29-4b0a-83eb-8fd179c5e2d3",
+        "date": 1684195200000,  // 16.5.2023
+        "type": 1,
+        "description": "Salg av Salmon Evolution",
+        "accountId": "5d6d80c7-cc32-43ea-bb46-2af800f026f3",
+        "ticker": "SALME",
+        "shares": 40,
+        "price": 14,
+        "brokerage": 79
+    },
+    {
+        "id": "c894f81e-80c6-477d-bf9f-23f319fa4736",
+        "date": 1683590400000,  // 9.5.2023
+        "type": 0,
+        "description": "Kjøp i Salmon Evolution",
+        "accountId": "5d6d80c7-cc32-43ea-bb46-2af800f026f3",
+        "ticker": "SALME",
+        "shares": 50,
+        "price": 8,
+        "brokerage": 79
+    },
+    {
+        "id": "241694e0-b608-44f1-8427-831f35738193",
+        "date": 1684368000000,  // 18.05.2023
+        "type": 1,
+        "description": "Salg av Salmon Evolution",
+        "accountId": "5d6d80c7-cc32-43ea-bb46-2af800f026f3",
+        "ticker": "SALME",
+        "shares": 22,
+        "price": 15,
+        "brokerage": 79
+    }
+];
+
+beforeAll(() => {
+    
+});
 
 describe("TransactionService.getTransactionListViewModel", () => {
-    const service = new TransactionService();
-    const transactions: ITransaction[] = [
-        {
-            "id": "1d8ef955-7744-40c1-88d4-8eddef86669e",
-            "date": 1683504000000,  // 8.5.2023
-            "type": 0,
-            "description": "Kjøp i Salmon Evolution",
-            "accountId": "5d6d80c7-cc32-43ea-bb46-2af800f026f3",
-            "ticker": "SALME",
-            "shares": 12,
-            "price": 7,
-            "brokerage": 79
-        },
-        {
-            "id": "b4aae0e3-af29-4b0a-83eb-8fd179c5e2d3",
-            "date": 1684195200000,  // 16.5.2023
-            "type": 1,
-            "description": "Salg av Salmon Evolution",
-            "accountId": "5d6d80c7-cc32-43ea-bb46-2af800f026f3",
-            "ticker": "SALME",
-            "shares": 40,
-            "price": 14,
-            "brokerage": 79
-        },
-        {
-            "id": "c894f81e-80c6-477d-bf9f-23f319fa4736",
-            "date": 1683590400000,  // 9.5.2023
-            "type": 0,
-            "description": "Kjøp i Salmon Evolution",
-            "accountId": "5d6d80c7-cc32-43ea-bb46-2af800f026f3",
-            "ticker": "SALME",
-            "shares": 50,
-            "price": 8,
-            "brokerage": 79
-        },
-        {
-            "id": "241694e0-b608-44f1-8427-831f35738193",
-            "date": 1684368000000,
-            "type": 1,
-            "description": "Salg av Salmon Evolution",
-            "accountId": "5d6d80c7-cc32-43ea-bb46-2af800f026f3",
-            "ticker": "SALME",
-            "shares": 22,
-            "price": 15,
-            "brokerage": 79
-        }
-    ]
-    const result = service.getTransactionListViewModel(transactions);
+    const mockDbService = jest.fn(() => ({
+        getTransactionsForTicker: jest.fn(() => testTransactionsForTickerSalme),
+      })) as unknown as jest.Mocked<DbService>;
+    const priceListService = new PriceListService(mockDbService);
+    const service = new TransactionService(priceListService);
+
+    // Create a price list that consists only of prices from the transaction list
+    const priceList: IPriceList = {
+        ticker: "SALME"
+    };
+    testTransactionsForTickerSalme.forEach(t => priceList[t.date] = t.price);
+    const result = service.getTransactionListViewModel(testTransactionsForTickerSalme, priceList);
     it("Returns a TransactionListViewModel with TransactionViewModels", () => {
         expect(result).not.toBeUndefined();
         expect(result.TransactionViewModels).toHaveLength(4);
@@ -83,5 +100,14 @@ describe("TransactionService.getTransactionListViewModel", () => {
         expect(result.TransactionViewModels[1].accumulatedBrokerage).toBe(secondAccumulatedBrokerage);
         expect(result.TransactionViewModels[2].accumulatedBrokerage).toBe(thirdAccumulatedBrokerage);
         expect(result.TransactionViewModels[3].accumulatedBrokerage).toBe(fourthAccumulatedBrokerage);
-    })
+    });
+    it("Calculates unrealized win/loss with no current price information, based on current transaction price", () => {
+        const currentPrice = 15;
+        const firstUnrealizedWin = (currentPrice * 12) - (7 * 12 + 79);
+        const secondUnrealizedWin = (currentPrice * 50) - (8 * 50 + 79);
+        expect(result.TransactionViewModels[0].unrealizedWin).toBe(firstUnrealizedWin);
+        expect(result.TransactionViewModels[1].unrealizedWin).toBe(secondUnrealizedWin);
+        expect(result.TransactionViewModels[2].unrealizedWin).toBeUndefined();
+        expect(result.TransactionViewModels[3].unrealizedWin).toBeUndefined();
+    });
 })

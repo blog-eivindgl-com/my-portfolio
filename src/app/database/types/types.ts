@@ -25,3 +25,15 @@ export interface ITransaction {
     price: number, 
     brokerage: number
 }
+
+export interface IStockPrice {
+    id: string,
+    ticker: string,
+    date: number,
+    price: number
+}
+
+export interface IPriceList {
+    ticker: string,
+    [date: number]: number
+}
