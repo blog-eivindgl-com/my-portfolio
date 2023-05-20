@@ -1,4 +1,4 @@
-import { IPriceList, IStockPrice, ITransaction, TransactionType } from "../database/types/types";
+import { IPriceList, ITransaction, TransactionType } from "../database/types/types";
 import TransactionListViewModel from "../viewmodel/transactions/TransactionListViewModel";
 import TransactionViewModel from "../viewmodel/transactions/TransactionViewModel";
 import PriceListService from "./PriceListService";
@@ -30,6 +30,9 @@ export default class TransactionService {
 
             // Calculate accumulated brokerage on each buy and first sale
             this.calculateAccumulatedBrokerage(vm, previousVm);
+
+            // Calculate realized win/loss
+            this.calculateRealizedWin(vm, previousVm);
         });
 
         // Calculate values that depends on values of other transactions coming after in the list
@@ -88,6 +91,17 @@ export default class TransactionService {
             vm.unrealizedWin = (vm.shares * currentPrice) - (vm.shares * vm.price + vm.brokerage);
         } else {
             vm.unrealizedWin = undefined;
+        }
+    }
+
+    calculateRealizedWin(vm: TransactionViewModel, previousVm: TransactionViewModel | null) {
+        if (vm.transaction.type === TransactionType.sell && vm.shares > 0) {
+            vm.realizedWin = (vm.shares * vm.price) 
+            - ((previousVm?.sharesLeft || 0) * (previousVm?.averagePrice || 0)) 
+            + (vm.sharesLeft * vm.averagePrice) 
+            - vm.accumulatedBrokerage; 
+        } else {
+            vm.realizedWin = undefined;
         }
     }
 

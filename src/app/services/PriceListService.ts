@@ -32,10 +32,13 @@ export default class PriceListService {
     }
 
     getPriceClosestToDate(lastPriceDate: number, priceList: IPriceList): number {
-        const closestDate = Object.keys(priceList)
-        .filter((key) => key !== "ticker")
-        .map(Number)
-        .reduce((prev, curr) => {
+        const allDates = Object.keys(priceList).filter((key) => key !== "ticker").map(Number);
+        
+        if (allDates.length === 0) {
+            return 0;
+        }
+
+        const closestDate = allDates.reduce((prev, curr) => {
             return (Math.abs(curr - lastPriceDate) < Math.abs(prev - lastPriceDate) ? curr : prev);
         });
         return priceList[closestDate];

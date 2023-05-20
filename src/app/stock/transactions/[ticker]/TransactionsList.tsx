@@ -1,5 +1,5 @@
 "use client"
-import { FC } from 'react';
+import { FC, Key } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { transactionsTable } from '../../../database/database.config';
 import { ITransaction } from '../../../database/types/types';
@@ -8,6 +8,7 @@ import TransactionListViewModel from '@/app/viewmodel/transactions/TransactionLi
 import TransactionService from '@/app/services/TransactionService';
 import PriceListService from '@/app/services/PriceListService';
 import DbService from '@/app/services/DbService';
+import TransactionViewModel from '@/app/viewmodel/transactions/TransactionViewModel';
 
 type Props = {
     ticker: string
@@ -78,6 +79,17 @@ const TransactionsList: FC<Props> = ({ticker}: Props) => {
     const priceList = priceListService.getPriceListForStock(ticker);
     const vm: TransactionListViewModel = transactionService.getTransactionListViewModel(transactions, priceList);
     console.log(vm);
+    const renderCell = (vm: TransactionViewModel, columnKey: Key) => {
+        const cellValue = vm[columnKey];
+        switch (columnKey) {
+            case "averagePrice":
+            case "unrealizedWin":
+            case "realizedWin":
+                return cellValue?.toFixed(3);
+            default:
+                return cellValue;
+        }
+    };
     return <Container>
         <h2>Transactions</h2>
         <Table
@@ -95,7 +107,7 @@ const TransactionsList: FC<Props> = ({ticker}: Props) => {
         <Table.Body items={vm.TransactionViewModels}>
             {(item) => (
             <Table.Row key={item.id}>
-                {(columnKey) => <Table.Cell>{item[columnKey]}</Table.Cell>}
+                {(columnKey) => <Table.Cell>{renderCell(item, columnKey)}</Table.Cell>}
             </Table.Row>
             )}
         </Table.Body>

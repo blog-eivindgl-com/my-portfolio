@@ -2,6 +2,7 @@ import { IPriceList, ITransaction } from "@/app/database/types/types";
 import DbService from "../../src/app/services/DbService";
 import PriceListService from "@/app/services/PriceListService";
 import TransactionService from "@/app/services/TransactionService";
+import exp from "constants";
 
 jest.mock("../../src/app/services/DbService");
 
@@ -109,5 +110,14 @@ describe("TransactionService.getTransactionListViewModel", () => {
         expect(result.TransactionViewModels[1].unrealizedWin).toBe(secondUnrealizedWin);
         expect(result.TransactionViewModels[2].unrealizedWin).toBeUndefined();
         expect(result.TransactionViewModels[3].unrealizedWin).toBeUndefined();
+    });
+    it("Calculates realized win/loss for all sell transactions", () => {
+        // sold shares * selling price - previous shares left * avg price + current shares left * avg price - brokerage
+        const thirdRealizedWin = (40 * 14) - (62 * 7.80645) + (22 * 7.80645) - (79 * 3);
+        const fourthRealizedWin = (22 * 15) - (22 * 7.80645) + 0 - 79;
+        expect(result.TransactionViewModels[0].realizedWin).toBeUndefined();
+        expect(result.TransactionViewModels[1].realizedWin).toBeUndefined();
+        expect(result.TransactionViewModels[2].realizedWin).toBeCloseTo(thirdRealizedWin, 3);
+        expect(result.TransactionViewModels[3].realizedWin).toBeCloseTo(fourthRealizedWin, 3);
     });
 })
