@@ -34,5 +34,17 @@
               "uriFormat": "http://localhost:%s"
             }
           },
+          {
+            "name": "Jest unit tests",
+            "request": "launch",
+            "runtimeExecutable": "yarn",
+            "runtimeArgs": [
+              "run test",
+            ],
+            "type": "node",
+            "serverReadyAction": {
+              
+            }
+          },
     ]
 }
