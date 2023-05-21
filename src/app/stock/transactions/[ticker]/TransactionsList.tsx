@@ -2,8 +2,8 @@
 import { FC, Key } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { transactionsTable } from '../../../database/database.config';
-import { ITransaction } from '../../../database/types/types';
-import { Container, Table } from '@nextui-org/react';
+import { ITransaction, TransactionType } from '../../../database/types/types';
+import { Container, CSS, red, Table } from '@nextui-org/react';
 import TransactionListViewModel from '@/app/viewmodel/transactions/TransactionListViewModel';
 import TransactionService from '@/app/services/TransactionService';
 import PriceListService from '@/app/services/PriceListService';
@@ -82,12 +82,48 @@ const TransactionsList: FC<Props> = ({ticker}: Props) => {
     const renderCell = (vm: TransactionViewModel, columnKey: Key) => {
         const cellValue = vm[columnKey];
         switch (columnKey) {
+            case "price":
             case "averagePrice":
+            case "brokerage":
+            case "accumulatedBrokerage":
+            case "worth":
             case "unrealizedWin":
             case "realizedWin":
                 return cellValue?.toFixed(3);
+            case "buy":
+            case "sell":
+                return cellValue?.toFixed(2);
             default:
                 return cellValue;
+        }
+    };
+    const renderCss = (vm: TransactionViewModel, columnKey: Key): CSS | undefined => {
+        function redOrGreenBasedOnValue(value: number | undefined): CSS | undefined {
+            if (value && value > 0) {
+                return {textAlign: "right", color: "DarkGreen", bgColor: "LightGreen"}
+            } else {
+                return {textAlign: "right", color: "DarkRed", bgColor: "LightRed"}
+            }
+        }
+        function underlinedOnSell(transactionType: TransactionType): CSS | undefined {
+            switch(transactionType) {
+                case TransactionType.sell:
+                    return {textAlign: "right", borderBottomStyle: "solid", borderBottomWidth: 1};
+                default:
+                    return {textAlign: "right", borderBottomStyle: "none"};
+            }
+        }
+        switch(columnKey) {
+            case "description":
+                return {textAlign: "left"};
+            case "unrealizedWin":
+                return redOrGreenBasedOnValue(vm.unrealizedWin);
+            case "realizedWin":
+                return redOrGreenBasedOnValue(vm.realizedWin);
+            case "accumulatedBrokerage":
+                return underlinedOnSell(vm.transaction.type);
+            default:
+                return {textAlign: "right"};
         }
     };
     return <Container>
@@ -107,7 +143,7 @@ const TransactionsList: FC<Props> = ({ticker}: Props) => {
         <Table.Body items={vm.TransactionViewModels}>
             {(item) => (
             <Table.Row key={item.id}>
-                {(columnKey) => <Table.Cell>{renderCell(item, columnKey)}</Table.Cell>}
+                {(columnKey) => <Table.Cell css={renderCss(item, columnKey)}>{renderCell(item, columnKey)}</Table.Cell>}
             </Table.Row>
             )}
         </Table.Body>

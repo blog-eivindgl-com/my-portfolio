@@ -41,7 +41,12 @@ export default class TransactionViewModel {
     }
 
     get shares(): number {
-        return this.transaction.shares;
+        switch (this.transaction.type) {
+            case TransactionType.sell:
+                return this.transaction.shares * -1;
+            default:
+                return this.transaction.shares;
+        }
     }
 
     get marketValuePerDate(): number {

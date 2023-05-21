@@ -3,9 +3,23 @@ import './globals.css'
 import { Inter } from 'next/font/google'
 import { CssBaseline } from "@nextui-org/react";
 import { NextUIProvider, createTheme } from "@nextui-org/react";
+import { ThemeProvider as NextThemesProvider } from 'next-themes';
 
 const inter = Inter({ subsets: ['latin'] })
-const darkTheme = createTheme({ type: "dark" });
+
+const lightTheme = createTheme({
+  type: 'light',
+  /*theme: {
+    colors: {...}, // optional
+  }*/
+})
+
+const darkTheme = createTheme({
+  type: 'dark',
+  /*theme: {
+    colors: {...}, // optional
+  }*/
+})
 
 /*export const metadata = {
   title: 'Create Next App',
@@ -21,9 +35,18 @@ export default function RootLayout({
     <html lang="en">
       <head>{CssBaseline.flush()}</head>
       <body className={inter.className}>
-        <NextUIProvider theme={darkTheme}>
+      <NextThemesProvider
+          defaultTheme="system"
+          attribute="class"
+          value={{
+            light: lightTheme.className,
+            dark: darkTheme.className
+          }}
+        >
+        <NextUIProvider>
           {children}
         </NextUIProvider>
+      </NextThemesProvider>
       </body>
     </html>
   )

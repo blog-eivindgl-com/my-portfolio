@@ -5,6 +5,7 @@ import TransactionsList from './TransactionsList';
 import { stockTable } from '../../../database/database.config';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { IStock } from '../../../database/types/types';
+import MyNavbar from '@/app/components/NavbarComponent';
 
 export async function generateStaticParams() {
     return (await stockTable.toArray()).map((value: IStock) => ({
@@ -20,6 +21,7 @@ function Transactions({params}: {params: { ticker: string }}) {
     );
     return (
     <Container>
+        <MyNavbar />
         <h1>{ticker} - {stock?.name}</h1>
         <Link href={`/stock/transactions/${ticker}/create`}>Create transaction</Link>
         <TransactionsList ticker={ticker} />

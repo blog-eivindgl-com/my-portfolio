@@ -47,7 +47,7 @@ export default class TransactionService {
             currentSharesLeft += vm.shares;
             vm.sharesLeft = currentSharesLeft;
         } else {
-            currentSharesLeft -= vm.shares;
+            currentSharesLeft += vm.shares;
             vm.sharesLeft = currentSharesLeft;
         }
 
@@ -95,8 +95,8 @@ export default class TransactionService {
     }
 
     calculateRealizedWin(vm: TransactionViewModel, previousVm: TransactionViewModel | null) {
-        if (vm.transaction.type === TransactionType.sell && vm.shares > 0) {
-            vm.realizedWin = (vm.shares * vm.price) 
+        if (vm.transaction.type === TransactionType.sell && Math.abs(vm.shares) > 0) {
+            vm.realizedWin = (Math.abs(vm.shares) * vm.price) 
             - ((previousVm?.sharesLeft || 0) * (previousVm?.averagePrice || 0)) 
             + (vm.sharesLeft * vm.averagePrice) 
             - vm.accumulatedBrokerage; 
