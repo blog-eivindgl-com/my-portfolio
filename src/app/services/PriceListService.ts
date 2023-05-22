@@ -4,26 +4,31 @@ import DbService from "./DbService";
 export default class PriceListService {
     constructor(private _dbService: DbService) { }
 
-    getPriceListForStock(ticker: string): IPriceList {
+    async getPriceListForStock(ticker: string): Promise<IPriceList> {
         // Lookup price list from DB
-        const priceList = this.getPriceListFromDb(ticker);
+        const priceList = await this.getPriceListFromDb(ticker);
 
         // Fill in price list by transactions for missing dates
-        this.fillInPriceListFromStockTransactions(priceList);
+        await this.fillInPriceListFromStockTransactions(priceList);
 
         return priceList;
     }
 
-    getPriceListFromDb(ticker: string): IPriceList {
-        // TODO: Read from DB and index prices per date
-        return {
-            ticker: ticker,
+    async getPriceListFromDb(ticker: string): Promise<IPriceList> {
+        const priceList: IPriceList = {
+            ticker: ticker
         };
+        const stockPrices = await this._dbService.getPricesForTicker(ticker);
+        stockPrices?.forEach((sp) => {
+            priceList[sp.date] = sp.price;
+        });
+
+        return priceList;
     }
 
-    fillInPriceListFromStockTransactions(priceList: IPriceList) {
+    async fillInPriceListFromStockTransactions(priceList: IPriceList) {
         const ticker = priceList.ticker;
-        const transactions = this._dbService.getTransactionsForTicker(ticker);
+        const transactions = await this._dbService.getTransactionsForTicker(ticker);
         transactions?.forEach((t) => {
             if (priceList[t.date] === undefined) {
                 priceList[t.date] = t.price;
@@ -41,6 +46,9 @@ export default class PriceListService {
         const closestDate = allDates.reduce((prev, curr) => {
             return (Math.abs(curr - lastPriceDate) < Math.abs(prev - lastPriceDate) ? curr : prev);
         });
+
+        console.log(`Found price ${priceList[closestDate]} for date ${new Date(closestDate).toLocaleDateString()} closest to ${new Date(lastPriceDate).toLocaleDateString()}`);
+
         return priceList[closestDate];
     }
 }
