@@ -1,24 +1,15 @@
 "use client"
-import { FC, Key, useEffect, useState } from 'react';
-import { IPriceList, ITransaction, TransactionType } from '../../../database/types/types';
+import { FC, Key } from 'react';
+import { TransactionType } from '../../../database/types/types';
 import { Container, CSS, Table } from '@nextui-org/react';
 import TransactionListViewModel from '@/app/viewmodel/transactions/TransactionListViewModel';
-import TransactionService from '@/app/services/TransactionService';
-import PriceListService from '@/app/services/PriceListService';
-import DbService from '@/app/services/DbService';
 import TransactionViewModel from '@/app/viewmodel/transactions/TransactionViewModel';
-import { useLiveQuery } from 'dexie-react-hooks';
 
 type Props = {
-    ticker: string
+    vm: TransactionListViewModel
 }
 
-const TransactionsList: FC<Props> = ({ticker}: Props) => {
-    const dbService = new DbService();
-    const transactions = useLiveQuery<Array<ITransaction>>(
-        () => dbService.getTransactionsForTicker(ticker),
-        [ticker]
-    );
+const TransactionsList: FC<Props> = ({vm}: Props) => {
     const columns = [
         {
             key: 'date',
@@ -73,14 +64,6 @@ const TransactionsList: FC<Props> = ({ticker}: Props) => {
             label: 'Realized win/loss'
         }
     ]
-    const priceListService = new PriceListService(dbService);
-    const transactionService = new TransactionService(priceListService);
-    const priceList = useLiveQuery<IPriceList>(
-        () => priceListService.getPriceListForStock(ticker),
-        [ticker]
-    );
-    const vm: TransactionListViewModel = transactionService.getTransactionListViewModel(transactions, priceList);
-    console.log(vm);
     const renderCell = (vm: TransactionViewModel, columnKey: Key) => {
         const cellValue = vm[columnKey];
         switch (columnKey) {

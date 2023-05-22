@@ -1,6 +1,7 @@
 import { IPriceList, ITransaction, TransactionType } from "../database/types/types";
 import TransactionListViewModel from "../viewmodel/transactions/TransactionListViewModel";
 import TransactionViewModel from "../viewmodel/transactions/TransactionViewModel";
+import TransactionsSummaryViewModel from "../viewmodel/transactions/TransactionsSummaryViewModel";
 import PriceListService from "./PriceListService";
 
 export default class TransactionService {
@@ -123,5 +124,41 @@ export default class TransactionService {
 
         // When shares aren't sold, we take today's date
         return new Date().getTime();
+    }
+
+    getTransactionsSummaryViewModel(transactionListViewModel: TransactionListViewModel, priceList: IPriceList | undefined): TransactionsSummaryViewModel {
+        const summaryVm = new TransactionsSummaryViewModel();
+
+        // Calculate total realized win
+        summaryVm.totalRealizedWin = 
+            transactionListViewModel.TransactionViewModels
+            .filter(t => t.realizedWin !== undefined)
+            .reduce((sum, current) => sum += (current.realizedWin || 0), 0);
+
+        // Calculate current investment
+        const lastTransaction = 
+            transactionListViewModel.TransactionViewModels
+            .at(transactionListViewModel.TransactionViewModels.length - 1);
+        summaryVm.currentInvestment = (lastTransaction?.averagePrice || 0) * (lastTransaction?.sharesLeft || 0);
+        
+        // Current shares left
+        summaryVm.currentSharesLeft = lastTransaction?.sharesLeft || 0;
+
+        // Current price
+        if (priceList === undefined) {
+            priceList = {
+                ticker: lastTransaction?.transaction.ticker || ""
+            };
+        }
+        const currentPrice = this._priceListService.getPriceAndDateClosestToDate(Date.now(), priceList);
+        summaryVm.currentPriceUpdated = currentPrice?.date;
+        summaryVm.currentPrice = currentPrice?.price || 0;
+
+        // Current unrealized win
+        if (summaryVm.currentSharesLeft > 0) {
+            summaryVm.currentUnrealizedWin = (summaryVm.currentPrice * summaryVm.currentSharesLeft) - summaryVm.currentInvestment;
+        }
+
+        return summaryVm;
     }
 }
