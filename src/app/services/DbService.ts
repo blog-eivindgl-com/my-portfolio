@@ -1,14 +1,18 @@
-import { useLiveQuery } from "dexie-react-hooks";
-import { ITransaction } from "../database/types/types";
-import { transactionsTable } from "../database/database.config";
+import { IStockPrice, ITransaction } from "../database/types/types";
+import { stockPricesTable, transactionsTable } from "../database/database.config";
 
 export default class DbService {
     constructor() {}
 
-    getTransactionsForTicker(ticker: string): ITransaction[] {
-        return useLiveQuery<Array<ITransaction>>(
-            () => transactionsTable.where("ticker").equals(ticker).toArray(),
-            [ticker]
-        ) || [];
+    async getPricesForTicker(ticker: string): Promise<IStockPrice[]> {
+        return await stockPricesTable
+        .where("ticker").equals(ticker)
+        .toArray();
+    }
+
+    async getTransactionsForTicker(ticker: string): Promise<ITransaction[]> {
+        return await transactionsTable
+        .where("ticker").equals(ticker)
+        .toArray();
     }
 }

@@ -1,22 +1,22 @@
 "use client"
-import { FC, Key } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { transactionsTable } from '../../../database/database.config';
-import { ITransaction, TransactionType } from '../../../database/types/types';
-import { Container, CSS, red, Table } from '@nextui-org/react';
+import { FC, Key, useEffect, useState } from 'react';
+import { IPriceList, ITransaction, TransactionType } from '../../../database/types/types';
+import { Container, CSS, Table } from '@nextui-org/react';
 import TransactionListViewModel from '@/app/viewmodel/transactions/TransactionListViewModel';
 import TransactionService from '@/app/services/TransactionService';
 import PriceListService from '@/app/services/PriceListService';
 import DbService from '@/app/services/DbService';
 import TransactionViewModel from '@/app/viewmodel/transactions/TransactionViewModel';
+import { useLiveQuery } from 'dexie-react-hooks';
 
 type Props = {
     ticker: string
 }
 
-const TransactionsList: FC<Props> = ({ticker}: Props) => {    
+const TransactionsList: FC<Props> = ({ticker}: Props) => {
+    const dbService = new DbService();
     const transactions = useLiveQuery<Array<ITransaction>>(
-        () => transactionsTable.where("ticker").equals(ticker).toArray(),
+        () => dbService.getTransactionsForTicker(ticker),
         [ticker]
     );
     const columns = [
@@ -73,10 +73,12 @@ const TransactionsList: FC<Props> = ({ticker}: Props) => {
             label: 'Realized win/loss'
         }
     ]
-    const dbService = new DbService();
     const priceListService = new PriceListService(dbService);
     const transactionService = new TransactionService(priceListService);
-    const priceList = priceListService.getPriceListForStock(ticker);
+    const priceList = useLiveQuery<IPriceList>(
+        () => priceListService.getPriceListForStock(ticker),
+        [ticker]
+    );
     const vm: TransactionListViewModel = transactionService.getTransactionListViewModel(transactions, priceList);
     console.log(vm);
     const renderCell = (vm: TransactionViewModel, columnKey: Key) => {
@@ -100,9 +102,11 @@ const TransactionsList: FC<Props> = ({ticker}: Props) => {
     const renderCss = (vm: TransactionViewModel, columnKey: Key): CSS | undefined => {
         function redOrGreenBasedOnValue(value: number | undefined): CSS | undefined {
             if (value && value > 0) {
-                return {textAlign: "right", color: "DarkGreen", bgColor: "LightGreen"}
+                return {textAlign: "right", color: "DarkGreen", bgColor: "LightGreen"};
+            } else if (value && value < 0) {
+                return {textAlign: "right", color: "DarkRed", bgColor: "Pink"};
             } else {
-                return {textAlign: "right", color: "DarkRed", bgColor: "LightRed"}
+                return {textAlign: "right"};
             }
         }
         function underlinedOnSell(transactionType: TransactionType): CSS | undefined {

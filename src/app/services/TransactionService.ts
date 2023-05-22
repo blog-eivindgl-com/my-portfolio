@@ -6,7 +6,7 @@ import PriceListService from "./PriceListService";
 export default class TransactionService {
     constructor(private _priceListService: PriceListService) {}
 
-    getTransactionListViewModel(transactions: ITransaction[] | undefined, priceList: IPriceList): TransactionListViewModel {
+    getTransactionListViewModel(transactions: ITransaction[] | undefined, priceList: IPriceList | undefined): TransactionListViewModel {
         if (transactions === undefined) {
             return new TransactionListViewModel([]);
         }
@@ -84,9 +84,15 @@ export default class TransactionService {
         }
     }
 
-    calculateUnrealizedWin(vm: TransactionViewModel, priceList: IPriceList, transactionsAfter: TransactionViewModel[]) {
+    calculateUnrealizedWin(vm: TransactionViewModel, priceList: IPriceList | undefined, transactionsAfter: TransactionViewModel[]) {
         if (vm.transaction.type === TransactionType.buy && vm.shares > 0) {
             const lastPriceDate = this.findLastPriceDateForUnrealizedWin(vm.transaction.date, transactionsAfter);
+
+            if (priceList === undefined) {
+                priceList = {
+                    ticker: vm.transaction.ticker
+                };
+            }
             const currentPrice: number = this._priceListService.getPriceClosestToDate(lastPriceDate, priceList);
             vm.unrealizedWin = (vm.shares * currentPrice) - (vm.shares * vm.price + vm.brokerage);
         } else {
