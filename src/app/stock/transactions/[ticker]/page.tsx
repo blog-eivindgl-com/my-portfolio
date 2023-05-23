@@ -1,6 +1,6 @@
 "use client"
 import Link from 'next/link';
-import { Container } from '@nextui-org/react';
+import { Container, Text } from '@nextui-org/react';
 import TransactionsList from './TransactionsList';
 import { stockTable } from '../../../database/database.config';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -41,10 +41,9 @@ function Transactions({params}: {params: { ticker: string }}) {
     return (
     <Container>
         <MyNavbar />
-        <h1>{ticker} - {stock?.name}</h1>
-        <Link href={`/stock/transactions/${ticker}/create`}>Create transaction</Link>
+        <Text h1 css={{color: '$neutralLightContrast'}}>{ticker} - {stock?.name}</Text>
         <Summary vm={transactionsSummaryViewModel} />
-        <TransactionsList vm={transactionListViewModel} /> 
+        <TransactionsList vm={transactionListViewModel} ticker={ticker} /> 
     </Container>
     );
 }

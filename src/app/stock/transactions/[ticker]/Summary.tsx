@@ -21,8 +21,8 @@ const Summary: FC<Props> = ({vm}: Props) => {
         <Container>
             <Grid.Container gap={2}>
                 <Row>
-                    <SummaryItem title="Realized win" value={vm.totalRealizedWin} showAsRedOrGreen />
-                    <SummaryItem title="Unrealized win" value={vm.currentUnrealizedWin || 0} showAsRedOrGreen />
+                    <SummaryItem title="Realized win/loss" value={vm.totalRealizedWin} showAsRedOrGreen />
+                    <SummaryItem title="Unrealized win/loss" value={vm.currentUnrealizedWin || 0} showAsRedOrGreen />
                     <SummaryItem title="Investment" value={vm.currentInvestment} />
                     <SummaryItem title="Shares" value={vm.currentSharesLeft} />
                     <SummaryItem title={createPriceLabel(vm.currentPriceUpdated)} value={vm.currentPrice} />

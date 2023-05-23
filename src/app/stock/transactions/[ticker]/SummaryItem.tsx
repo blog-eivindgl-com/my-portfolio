@@ -18,6 +18,7 @@ const SummaryItem: FC<Props> = ({title, value, showAsRedOrGreen}: Props) => {
         const css: CSS = {};
         css.fontSize = '$7xl';
         css.textAlign = 'center';
+        css.color = '$neutralLightContrast';
 
         if (typeof value === "number" && showAsRedOrGreen) {
             if (value && value > 0) {
@@ -51,7 +52,7 @@ const SummaryItem: FC<Props> = ({title, value, showAsRedOrGreen}: Props) => {
                 <Text css={getCssForValue(value)}>{value}</Text>
             </Card.Body>
             <Card.Footer>
-                <Text b css={{textAlign: 'center'}}>{title}</Text>
+                <Text b css={{textAlign: 'center', color: '$neutralLightContrast'}}>{title}</Text>
             </Card.Footer>
         </Card>
     );

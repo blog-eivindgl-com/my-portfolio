@@ -1,16 +1,18 @@
 "use client"
 import { FC, Key } from 'react';
 import { TransactionType } from '../../../database/types/types';
-import { Container, CSS, Table } from '@nextui-org/react';
+import { Button, CSS, Col, Grid, Link, Row, Table, Text, Tooltip, useTheme } from '@nextui-org/react';
 import TransactionListViewModel from '@/app/viewmodel/transactions/TransactionListViewModel';
 import TransactionViewModel from '@/app/viewmodel/transactions/TransactionViewModel';
 import { Alignment } from '@react-types/shared';
+import AddIcon from '@/app/components/AddIcon';
 
 type Props = {
-    vm: TransactionListViewModel
+    vm: TransactionListViewModel,
+    ticker: string
 }
 
-const TransactionsList: FC<Props> = ({vm}: Props) => {
+const TransactionsList: FC<Props> = ({vm, ticker}: Props) => {
     const columns = [
         {
             key: 'date',
@@ -107,8 +109,10 @@ const TransactionsList: FC<Props> = ({vm}: Props) => {
                 case TransactionType.sell:
                     css.borderBottomStyle = "solid";
                     css.borderBottomWidth = 1;
+                    break;
                 default:
                     css.borderBottomStyle = "none";
+                    break;
             }
         }
         switch(columnKey) {
@@ -135,8 +139,32 @@ const TransactionsList: FC<Props> = ({vm}: Props) => {
                 return "end";
         }
     }
-    return <Container>
-        <h2>Transactions</h2>
+    const getIconColor = (): string => {
+        const { isDark } = useTheme();
+
+        if (isDark) {
+            return '#9BA1A6';
+        } else {
+            return '#687076';
+        }
+    }
+    return <>
+        <Grid css={{paddingLeft: '$sm', paddingRight: '$sm'}}>
+            <Grid css={{bg: '$neutralLight', borderRadius: '$xl', paddingLeft: '$md'}}>
+                <Row className='d-flex'>
+                <Grid md={11} css={{paddingTop: '$3'}}>
+                    <Text h3 css={{color: '$neutralLightContrast'}}>Transactions</Text>
+                </Grid>
+                <Grid md={1} css={{paddingTop: '$3', alignContent: 'end'}}>
+                    <Tooltip content="Create transaction">
+                        <Link href={`/stock/transactions/${ticker}/create`} css={{color: '$neutralLightContrast', bg: '$neutralLight', border: '$neutralLightContrast', borderStyle: 'solid', borderWidth: 'thin', borderRadius: '$sm', padding: '$3'}}>
+                            <AddIcon size={20} fill={getIconColor()} height={undefined} width={undefined} />
+                        </Link>
+                    </Tooltip>
+                </Grid>
+                </Row>
+            </Grid>
+        </Grid>
         <Table
             aria-label="Transactions"
             css={{
@@ -149,7 +177,7 @@ const TransactionsList: FC<Props> = ({vm}: Props) => {
             <Table.Column align={getAllignmentForColumn(column.key)} key={column.key}>{column.label}</Table.Column>
             )}
         </Table.Header>
-        <Table.Body items={vm.TransactionViewModels}>
+        <Table.Body items={vm.TransactionViewModels} css={{bg: '$background'}}>
             {(item) => (
             <Table.Row key={item.id}>
                 {(columnKey) => <Table.Cell css={renderCss(item, columnKey)}>{renderCell(item, columnKey)}</Table.Cell>}
@@ -157,7 +185,7 @@ const TransactionsList: FC<Props> = ({vm}: Props) => {
             )}
         </Table.Body>
         </Table>
-    </Container>
+    </>
 }
 
 export default TransactionsList;
