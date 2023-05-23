@@ -4,7 +4,7 @@ const database = new Dexie("my-portfolio");
 database.version(1).stores({
     stocks: 'ticker, name',
     accounts: 'id, name',
-    transactions: 'id, timestamp, type, ticker, accountId, date, description, shares, price, brokerage',
+    transactions: 'id, timestamp, order, type, ticker, accountId, date, description, shares, price, brokerage',
     stockPrices: 'id, ticker, date, price'
 });
 

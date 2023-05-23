@@ -21,9 +21,9 @@ const SummaryItem: FC<Props> = ({title, value, showAsRedOrGreen}: Props) => {
 
         if (typeof value === "number" && showAsRedOrGreen) {
             if (value && value > 0) {
-                css.color = 'DarkGreen';
+                css.color = '$successLightContrast';
             } else if (value && value < 0) {
-                css.color = 'DarkRed';
+                css.color = '$errorLightContrast';
             }
         }
 
@@ -36,9 +36,9 @@ const SummaryItem: FC<Props> = ({title, value, showAsRedOrGreen}: Props) => {
 
         if (showAsRedOrGreen && value && typeof value === "number") {
             if (value > 0) {
-                css.bgColor = 'LightGreen';
+                css.bg = '$successLight';
             } else if (value < 0) {
-                css.bgColor = 'Pink';
+                css.bg = '$errorLight';
             }
         }
 

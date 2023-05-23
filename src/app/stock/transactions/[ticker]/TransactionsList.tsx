@@ -93,11 +93,11 @@ const TransactionsList: FC<Props> = ({vm}: Props) => {
 
         function redOrGreenBasedOnValue(value: number | undefined): void {
             if (value && value > 0) {
-                css.color = "DarkGreen";
-                css.bgColor = "LightGreen";
+                css.bg = "$successLight";
+                css.color = "$successLightContrast";
             } else if (value && value < 0) {
-                css.color = "DarkRed";
-                css.bgColor = "Pink";
+                css.bg = "$errorLight";
+                css.color = "$errorLightContrast";
             }
         }
         function underlinedOnSell(transactionType: TransactionType): void {

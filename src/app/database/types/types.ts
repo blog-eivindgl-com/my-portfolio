@@ -20,6 +20,7 @@ export interface ITransaction {
     ticker: string, 
     accountId: string, 
     date: number, 
+    order: number,
     description: string, 
     shares: number, 
     price: number, 
