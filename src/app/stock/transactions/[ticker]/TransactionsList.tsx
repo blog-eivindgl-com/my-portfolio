@@ -4,6 +4,7 @@ import { TransactionType } from '../../../database/types/types';
 import { Container, CSS, Table } from '@nextui-org/react';
 import TransactionListViewModel from '@/app/viewmodel/transactions/TransactionListViewModel';
 import TransactionViewModel from '@/app/viewmodel/transactions/TransactionViewModel';
+import { Alignment } from '@react-types/shared';
 
 type Props = {
     vm: TransactionListViewModel
@@ -83,36 +84,55 @@ const TransactionsList: FC<Props> = ({vm}: Props) => {
         }
     };
     const renderCss = (vm: TransactionViewModel, columnKey: Key): CSS | undefined => {
-        function redOrGreenBasedOnValue(value: number | undefined): CSS | undefined {
+        const css: CSS = {};
+        if (getAllignmentForColumn(columnKey) === "end") {
+            css.textAlign = "end";
+        } else {
+            css.textAlign = "start";
+        }
+
+        function redOrGreenBasedOnValue(value: number | undefined): void {
             if (value && value > 0) {
-                return {textAlign: "right", color: "DarkGreen", bgColor: "LightGreen"};
+                css.color = "DarkGreen";
+                css.bgColor = "LightGreen";
             } else if (value && value < 0) {
-                return {textAlign: "right", color: "DarkRed", bgColor: "Pink"};
-            } else {
-                return {textAlign: "right"};
+                css.color = "DarkRed";
+                css.bgColor = "Pink";
             }
         }
-        function underlinedOnSell(transactionType: TransactionType): CSS | undefined {
+        function underlinedOnSell(transactionType: TransactionType): void {
             switch(transactionType) {
                 case TransactionType.sell:
-                    return {textAlign: "right", borderBottomStyle: "solid", borderBottomWidth: 1};
+                    css.borderBottomStyle = "solid";
+                    css.borderBottomWidth = 1;
                 default:
-                    return {textAlign: "right", borderBottomStyle: "none"};
+                    css.borderBottomStyle = "none";
             }
         }
         switch(columnKey) {
             case "description":
-                return {textAlign: "left"};
+                css.textAlign = "start";
+                break;
             case "unrealizedWin":
-                return redOrGreenBasedOnValue(vm.unrealizedWin);
+                redOrGreenBasedOnValue(vm.unrealizedWin);
+                break;
             case "realizedWin":
-                return redOrGreenBasedOnValue(vm.realizedWin);
+                redOrGreenBasedOnValue(vm.realizedWin);
+                break;
             case "accumulatedBrokerage":
-                return underlinedOnSell(vm.transaction.type);
-            default:
-                return {textAlign: "right"};
+                underlinedOnSell(vm.transaction.type);
+                break;
         }
+        return css;
     };
+    const getAllignmentForColumn = (columnKey: Key): Alignment => {
+        switch(columnKey) {
+            case "description":
+                return "start";
+            default:
+                return "end";
+        }
+    }
     return <Container>
         <h2>Transactions</h2>
         <Table
@@ -124,7 +144,7 @@ const TransactionsList: FC<Props> = ({vm}: Props) => {
         >
         <Table.Header columns={columns}>
             {(column) => (
-            <Table.Column key={column.key}>{column.label}</Table.Column>
+            <Table.Column align={getAllignmentForColumn(column.key)} key={column.key}>{column.label}</Table.Column>
             )}
         </Table.Header>
         <Table.Body items={vm.TransactionViewModels}>
