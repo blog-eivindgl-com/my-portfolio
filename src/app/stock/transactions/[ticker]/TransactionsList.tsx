@@ -70,12 +70,14 @@ const TransactionsList: FC<Props> = ({vm}: Props) => {
         switch (columnKey) {
             case "price":
             case "averagePrice":
+                return cellValue?.toFixed(3);
             case "brokerage":
             case "accumulatedBrokerage":
             case "worth":
+                return cellValue?.toFixed(2);
             case "unrealizedWin":
             case "realizedWin":
-                return cellValue?.toFixed(3);
+                return cellValue?.toFixed(0);
             case "buy":
             case "sell":
                 return cellValue?.toFixed(2);
