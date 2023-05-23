@@ -1,4 +1,4 @@
-import { IPriceList } from "../database/types/types";
+import { IPriceList, IStockPrice } from "../database/types/types";
 import DbService from "./DbService";
 
 export default class PriceListService {
@@ -36,19 +36,42 @@ export default class PriceListService {
         });
     }
 
-    getPriceClosestToDate(lastPriceDate: number, priceList: IPriceList): number {
+    getPriceListDateClosestToDate(date: number, priceList: IPriceList): number | undefined {
         const allDates = Object.keys(priceList).filter((key) => key !== "ticker").map(Number);
         
         if (allDates.length === 0) {
-            return 0;
+            return undefined;
         }
 
-        const closestDate = allDates.reduce((prev, curr) => {
-            return (Math.abs(curr - lastPriceDate) < Math.abs(prev - lastPriceDate) ? curr : prev);
+        return allDates.reduce((prev, curr) => {
+            return (Math.abs(curr - date) < Math.abs(prev - date) ? curr : prev);
         });
+    }
+
+    getPriceClosestToDate(lastPriceDate: number, priceList: IPriceList): number {
+        const closestDate = this.getPriceListDateClosestToDate(lastPriceDate, priceList);
+
+        if (!closestDate) {
+            return 0;
+        }
 
         console.log(`Found price ${priceList[closestDate]} for date ${new Date(closestDate).toLocaleDateString()} closest to ${new Date(lastPriceDate).toLocaleDateString()}`);
 
         return priceList[closestDate];
+    }
+
+    getPriceAndDateClosestToDate(date: number, priceList: IPriceList): IStockPrice | undefined {
+        const closestDate = this.getPriceListDateClosestToDate(date, priceList);
+
+        if (!closestDate) {
+            return undefined;
+        }
+
+        return {
+            id: "",
+            ticker: priceList.ticker,
+            date: closestDate,
+            price: priceList[closestDate]
+        };
     }
 }
