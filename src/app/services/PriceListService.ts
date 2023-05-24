@@ -27,10 +27,20 @@ export default class PriceListService {
     }
 
     async fillInPriceListFromStockTransactions(priceList: IPriceList) {
+        type OrderForDate = {
+            order: number,
+            date: number
+        };
         const ticker = priceList.ticker;
         const transactions = await this._dbService.getTransactionsForTicker(ticker);
+        let orderForDate: OrderForDate | null = null;
         transactions?.forEach((t) => {
-            if (priceList[t.date] === undefined) {
+            // Make sure we use the latest known price for the date taken from the last one of the transactions
+            if (priceList[t.date] === undefined || (orderForDate !== null && orderForDate.order < t.order && orderForDate.date === t.date)) {
+                orderForDate = {
+                    order: t.order,
+                    date: t.date
+                };
                 priceList[t.date] = t.price;
             }
         });

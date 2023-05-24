@@ -2,10 +2,11 @@ import { IPriceList, ITransaction, TransactionType } from "../database/types/typ
 import TransactionListViewModel from "../viewmodel/transactions/TransactionListViewModel";
 import TransactionViewModel from "../viewmodel/transactions/TransactionViewModel";
 import TransactionsSummaryViewModel from "../viewmodel/transactions/TransactionsSummaryViewModel";
+import DbService from "./DbService";
 import PriceListService from "./PriceListService";
 
 export default class TransactionService {
-    constructor(private _priceListService: PriceListService) {}
+    constructor(private _priceListService: PriceListService, private _dbService: DbService) {}
 
     getTransactionListViewModel(transactions: ITransaction[] | undefined, priceList: IPriceList | undefined): TransactionListViewModel {
         if (transactions === undefined) {
@@ -160,5 +161,10 @@ export default class TransactionService {
         }
 
         return summaryVm;
+    }
+
+    async addNewTransaction(transaction: ITransaction): Promise<void> {
+        transaction.order = await this._dbService.getNextTransactionOrderValue(transaction.ticker);
+        await this._dbService.addTransaction(transaction);
     }
 }

@@ -6,12 +6,18 @@ import { accountsTable, transactionsTable } from '../../../../database/database.
 import { IAccount, ITransaction, TransactionType } from '../../../../database/types/types';
 import { Container } from '@nextui-org/react';
 import { Selection } from '@react-types/shared';
+import TransactionService from '@/app/services/TransactionService';
+import PriceListService from '@/app/services/PriceListService';
+import DbService from '@/app/services/DbService';
 
 interface ITransactionFormProps {
     ticker: string
 }
 
 const TransactionForm: FC<ITransactionFormProps> = ({ticker}) => {
+    const dbService = new DbService();
+    const priceListService = new PriceListService(dbService);
+    const transactionService = new TransactionService(priceListService);
     const [transactionType, setTransactionType] = useState(TransactionType.buy);
     const [date, setDate] = useState(new Date());
     const [accounts, setAccounts] = useState<IAccount[]>([]);
@@ -44,6 +50,7 @@ const TransactionForm: FC<ITransactionFormProps> = ({ticker}) => {
         const transaction: ITransaction = {
             id: crypto.randomUUID(),
             date: new Date(event.target.date.value).getTime(),
+            order: 0,
             type: transactionType,
             description: event.target.elements['description'].value,
             accountId: getSelectedAccount(selectedAccountId?[0].toString(): '')?.id || "",
@@ -53,7 +60,7 @@ const TransactionForm: FC<ITransactionFormProps> = ({ticker}) => {
             brokerage: Number(event.target.brokerage.value)
         }
         try {
-            const ticker = await transactionsTable.add(transaction);
+            await transactionService.addNewTransaction(transaction);
             event.target.reset();
         } catch (error) {
             console.error(`Failed to create ${transaction}: ${error}`);

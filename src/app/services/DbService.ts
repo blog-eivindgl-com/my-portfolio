@@ -13,6 +13,14 @@ export default class DbService {
     async getTransactionsForTicker(ticker: string): Promise<ITransaction[]> {
         return await transactionsTable
         .where("ticker").equals(ticker)
-        .toArray();
+        .sortBy("order");
+    }
+
+    async getNextTransactionOrderValue(ticker: string): Promise<number> {
+        return await transactionsTable.filter(t => t.ticker === ticker).count();
+    }
+
+    async addTransaction(transaction: ITransaction): Promise<void> {
+        await transactionsTable.add(transaction);
     }
 }
