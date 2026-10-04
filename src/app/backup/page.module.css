@@ -1,0 +1,15 @@
+.root { max-width: 48rem; margin: 2rem auto; padding: 0 1rem; }
+.root h1, .root h2 { margin-top: 1.5rem; }
+.root p { margin: .8rem 0; }
+.root a { text-decoration: underline; }
+.fields { display: grid; gap: .8rem; padding: 1rem; margin: 1rem 0; border: 1px solid #888; border-radius: .35rem; }
+.root button, .root select { font: inherit; padding: .55rem; border: 1px solid #888; border-radius: .35rem; }
+.root select { width: 100%; color: inherit; background: var(--nextui-colors-background, transparent); }
+.root input[type='file'] { max-width: 100%; }
+.root input[type='checkbox'] { margin-right: .5rem; }
+.root button:disabled { opacity: .55; }
+.root table { width: 100%; border-collapse: collapse; }
+.root th, .root td { text-align: left; padding: .4rem; border-bottom: 1px solid #888; }
+.root caption { text-align: left; margin-bottom: .5rem; }
+.error { color: #b42318; }
+@media (prefers-color-scheme: dark) { .error { color: #ffb4ab; } }

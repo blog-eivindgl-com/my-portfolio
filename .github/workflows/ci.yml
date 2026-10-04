@@ -50,7 +50,7 @@ jobs:
       - name: Install isolated browser-test runtime
         if: runner.os == 'Linux'
         run: yarn playwright install --with-deps chromium
-      - name: Test transaction entry in isolated browser contexts
+      - name: Test transaction entry and backup recovery in isolated browsers
         if: runner.os == 'Linux'
         run: yarn test:e2e
       - name: Ensure installation and checks did not rewrite tracked files

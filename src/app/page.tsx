@@ -8,6 +8,7 @@ export default function Home() {
   return (
     <Container>
       <MyNavbar />
+      <p><a href="/backup">Backup and restore your portfolio</a></p>
     </Container>
   )
 }

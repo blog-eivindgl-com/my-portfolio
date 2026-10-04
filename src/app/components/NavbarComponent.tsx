@@ -13,6 +13,7 @@ export default function MyNavbar() {
         <Navbar.Content hideIn="md">
           <Navbar.Link href="/stock">Stock</Navbar.Link>
           <Navbar.Link href="/accounts">Accounts</Navbar.Link>
+          <Navbar.Link href="/backup">Backup</Navbar.Link>
         </Navbar.Content>
         <Navbar.Content>
           <Switch

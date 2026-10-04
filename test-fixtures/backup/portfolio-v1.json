@@ -1,0 +1,25 @@
+{
+  "format": "my-portfolio-backup",
+  "formatVersion": 1,
+  "databaseVersion": 1,
+  "exportedAt": "2024-03-02T12:00:00.000Z",
+  "records": {
+    "accounts": [
+      { "id": "synthetic-account-a", "name": "Synthetic shares" },
+      { "id": "synthetic-account-b", "name": "Synthetic funds" }
+    ],
+    "stocks": [
+      { "ticker": "SYNTH-A", "name": "Synthetic share" },
+      { "ticker": "SYNTH-B", "name": "Synthetic fund" }
+    ],
+    "transactions": [
+      { "id": "synthetic-buy-a", "type": 0, "ticker": "SYNTH-A", "accountId": "synthetic-account-a", "date": 1709164800000, "description": "  Preserve whitespace  ", "shares": 10.125, "price": 12.375, "brokerage": 0.25 },
+      { "id": "synthetic-sell-a", "type": 1, "ticker": "SYNTH-A", "accountId": "synthetic-account-a", "date": 1709251200000, "description": "Synthetic sale", "shares": 2.5, "price": 13.625, "brokerage": 0.125 },
+      { "id": "synthetic-buy-b", "type": 0, "ticker": "SYNTH-B", "accountId": "synthetic-account-b", "date": 1709164800000, "description": "Synthetic fund purchase", "shares": 0.123456789, "price": 123.456789, "brokerage": 0 }
+    ],
+    "stockPrices": [
+      { "id": "synthetic-price-a", "ticker": "SYNTH-A", "date": 1709380800000, "price": 14.125 },
+      { "id": "synthetic-price-b", "ticker": "SYNTH-B", "date": 1709380800000, "price": 124.56789 }
+    ]
+  }
+}
