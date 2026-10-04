@@ -1,6 +1,6 @@
 # My Portfolio
 
-A local-browser portfolio prototype built with Next.js, React, NextUI and Dexie/IndexedDB. Current functionality covers accounts, instruments, validated buy/sell entry, revision-checked transaction editing/deletion, per-ticker summaries and local JSON backup/restore. Portfolio-wide reporting, broader historical migrations and OneDrive/Google Drive sync are planned in [the roadmap](https://github.com/blog-eivindgl-com/my-portfolio/issues/14).
+A local-browser portfolio prototype built with Next.js, React, NextUI and Dexie/IndexedDB. Current functionality covers accounts, instruments, validated buy/sell entry, revision-checked transaction editing/deletion, per-instrument summaries and local JSON backup/restore. Portfolio-wide reporting, broader historical migrations and OneDrive/Google Drive sync are planned in [the roadmap](https://github.com/blog-eivindgl-com/my-portfolio/issues/14).
 
 ## Reproducible setup
 
@@ -77,7 +77,7 @@ Runtime instrument routes are resolved from browser IndexedDB; no build-time dat
 - `src/app/accounts` and `src/app/stock`: browser forms and pages using live queries.
 - `test-fixtures/database`: synthetic historical layouts for future migration work; these are not an implemented import/export interface.
 
-The working portfolio remains in this browser profile/origin. **Backup** provides versioned JSON export, validated merge/replacement previews and atomic restore with a required downloaded pre-import recovery copy. [Read the format and recovery procedure](docs/backup-restore.md) before clearing storage or changing origins. A separate recovery-only archive preserves known historical/malformed fields but is not directly importable. This branch implements supported v1/v2-to-v3 migration and a local atomic outbox; cloud synchronization is not implemented. Backup format 3 preserves deletion markers and reads format 2; old format-1 files remain unsupported. See [issue 9 foundation scope](docs/issue-9-foundation.md) for migration limits, restore history semantics and remaining work. Use isolated browser profiles and synthetic data for development; migration fixtures are not supported import files.
+The working portfolio remains in this browser profile/origin. **Backup** provides versioned JSON export, validated merge/replacement previews and atomic restore with a required downloaded pre-import recovery copy. [Read the format and recovery procedure](docs/backup-restore.md) before clearing storage or changing origins. A separate recovery-only archive preserves known historical/malformed fields but is not directly importable. The current schema4 migration uses native instrument UUIDs and preserves supported historical identity and operation history. A local atomic outbox is present; cloud synchronization is not implemented. Portable backup format4 preserves UUIDs and deletion markers; older portable formats are refused rather than guessed. See [issue 9 foundation scope](docs/issue-9-foundation.md) for migration limits, restore history semantics and remaining work. Use isolated browser profiles and synthetic data for development; migration fixtures are not supported import files.
 
 ## Known correctness and maintenance limits
 
@@ -85,3 +85,7 @@ The working portfolio remains in this browser profile/origin. **Backup** provide
 - Next.js 13.4.2 and the beta NextUI stack are retained to keep this change scoped to the build baseline. Next.js 13 is [outside the supported release policy](https://nextjs.org/support-policy).
 - The 4 October 2026 registry audit reports critical and high dependency advisories. See the verification record for counts and interpretation. This baseline is **not a security-approved production release**. A supported framework/UI and transitive-dependency upgrade must precede public/authenticated rollout; the security/release work is tracked in #22 and #23.
 - `yarn audit --json` is a separate online maintenance check and currently exits nonzero. It is not silently treated as a passing CI check. No automatic audit fixes, browser-data access or cloud credentials are part of this setup.
+
+## Calculation experiment
+
+Open `/experiment` to compare the proposed fee allocation against the standard view. The accounting policy remains experimental and undecided. The read-only trial uses native instrument UUIDs, retained trade order and optional clock labels, and shows unknown currency metadata explicitly. See [the rules, cutoff semantics and worked example](docs/calculation-experiment.md) and [verification](docs/verification/issue-17.md).

@@ -65,6 +65,11 @@ test('exports and restores exactly into a fresh browser context', async ({ page,
     await initialize(page);
     const exported = await download(page, 'Export backup');
     expect(canonicalRecords(parseBackup(exported).records)).toBe(canonicalRecords(parseBackup(source).records));
+    await page.clock.setFixedTime(new Date('2024-03-03T12:00:00Z'));
+    await page.goto('/experiment');
+    const originalMetrics = page.getByRole('region', { name: `synthetic-account-a / ${fixture.records.transactions[0].instrumentId}`, exact: true }).locator('dl');
+    await expect(originalMetrics).toBeVisible();
+    const trialBefore = await originalMetrics.innerText();
     const fresh = await browser.newContext({ baseURL: 'http://127.0.0.1:3100', timezoneId: info.project.use.timezoneId, locale: info.project.use.locale });
     try {
         const restored = await fresh.newPage();
@@ -76,6 +81,9 @@ test('exports and restores exactly into a fresh browser context', async ({ page,
         await restored.reload();
         const reexported = await download(restored, 'Export backup');
         expect(canonicalRecords(parseBackup(reexported).records)).toBe(canonicalRecords(parseBackup(exported).records));
+        await restored.clock.setFixedTime(new Date('2024-03-03T12:00:00Z'));
+        await restored.goto('/experiment');
+        await expect(restored.getByRole('region', { name: `synthetic-account-a / ${fixture.records.transactions[0].instrumentId}`, exact: true }).locator('dl')).toHaveText(trialBefore, { useInnerText: true });
     } finally { await fresh.close(); }
 });
 

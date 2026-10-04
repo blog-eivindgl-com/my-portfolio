@@ -15,31 +15,34 @@ export default class TransactionService {
 
         const ordered = orderTransactions(transactions);
         const tlvm = new TransactionListViewModel(ordered.transactions.map(t => new TransactionViewModel(t)), ordered.warnings);
-        // Do not derive gains/balances from a display-only tie breaker.
+        // Display ordering must never become assumed accounting chronology.
         if (ordered.warnings.length) return tlvm;
+
         // Calculate values not dependent on future transactions
-        let sharesLeft = 0;
-        let averagePrice = 0;
-        tlvm.TransactionViewModels.forEach((vm, index) => {
-            let previousVm = (index === 0 ? null : tlvm.TransactionViewModels[index-1]);
-            let previousSharesLeft = sharesLeft;
+        const positions = new Map<string, TransactionViewModel>();
+        tlvm.TransactionViewModels.forEach(vm => {
+            const key = JSON.stringify([vm.transaction.accountId, vm.transaction.instrumentId]);
+            const previousVm = positions.get(key) || null;
+            const previousSharesLeft = previousVm?.sharesLeft || 0;
 
             // Calculate shares left
-            sharesLeft = this.calculsateSharesLeft(vm, sharesLeft);
+            this.calculsateSharesLeft(vm, previousSharesLeft);
 
             // Calculate average price on each buy
-            averagePrice = this.calculateAveragePrice(vm, averagePrice, previousSharesLeft);
+            this.calculateAveragePrice(vm, previousVm?.averagePrice || 0, previousSharesLeft);
 
             // Calculate accumulated brokerage on each buy and first sale
             this.calculateAccumulatedBrokerage(vm, previousVm);
 
             // Calculate realized win/loss
             this.calculateRealizedWin(vm, previousVm);
+            positions.set(key, vm);
         });
 
         // Calculate values that depends on values of other transactions coming after in the list
         tlvm.TransactionViewModels.forEach((vm, index, all) => {
-            this.calculateUnrealizedWin(vm, priceList, all.slice(index));
+            this.calculateUnrealizedWin(vm, priceList?.instrumentId === vm.transaction.instrumentId ? priceList : undefined,
+                all.slice(index).filter(row => row.transaction.accountId === vm.transaction.accountId && row.transaction.instrumentId === vm.transaction.instrumentId));
         });
         return tlvm;
     }
@@ -95,8 +98,8 @@ export default class TransactionService {
                     instrumentId: vm.transaction.instrumentId
                 };
             }
-            const currentPrice: number = this._priceListService.getPriceClosestToDate(lastPriceDate, priceList);
-            vm.unrealizedWin = (vm.shares * currentPrice) - (vm.shares * vm.price + vm.brokerage);
+            const currentPrice = this._priceListService.getPriceClosestToDate(lastPriceDate, priceList);
+            vm.unrealizedWin = currentPrice === undefined ? undefined : (vm.shares * currentPrice) - (vm.shares * vm.price + vm.brokerage);
         } else {
             vm.unrealizedWin = undefined;
         }
@@ -116,11 +119,8 @@ export default class TransactionService {
     findLastPriceDateForUnrealizedWin(currentTransactionDate: number, transactionsAfter: TransactionViewModel[]): number {
         // When all shares after the current transaction is sold, we take the date of the last selling transaction
         if (transactionsAfter && transactionsAfter.length > 0) {
-            transactionsAfter.forEach((vm, index) => {
-                if (vm.sharesLeft <= 0) {
-                    return vm.transaction.date;
-                }
-            });
+            const closing = transactionsAfter.find(vm => vm.transaction.date >= currentTransactionDate && vm.sharesLeft <= 0);
+            if (closing) return closing.transaction.date;
         }
 
         // When shares aren't sold, we take today's date
@@ -130,7 +130,15 @@ export default class TransactionService {
     getTransactionsSummaryViewModel(transactionListViewModel: TransactionListViewModel, priceList: IPriceList | undefined): TransactionsSummaryViewModel {
         const summaryVm = new TransactionsSummaryViewModel();
         if (transactionListViewModel.orderWarnings.length) {
+            summaryVm.totalRealizedWin = undefined;
             summaryVm.orderWarning = 'Calculations are unavailable because same-day trade order is unknown. Supply distinct trade times where known; equal times still need review.';
+            return summaryVm;
+        }
+        const rows = transactionListViewModel.TransactionViewModels;
+        const instrumentIds = new Set(rows.map(row => row.transaction.instrumentId));
+        if (instrumentIds.size > 1) {
+            summaryVm.totalRealizedWin = undefined;
+            summaryVm.incompleteReason = 'Mixed instruments cannot share one price or monetary summary. View each instrument separately.';
             return summaryVm;
         }
 
@@ -144,23 +152,27 @@ export default class TransactionService {
         const lastTransaction = 
             transactionListViewModel.TransactionViewModels
             .at(transactionListViewModel.TransactionViewModels.length - 1);
-        summaryVm.currentInvestment = (lastTransaction?.averagePrice || 0) * (lastTransaction?.sharesLeft || 0);
+        const positions = new Map<string, TransactionViewModel>();
+        rows.forEach(row => positions.set(JSON.stringify([row.transaction.accountId, row.transaction.instrumentId]), row));
+        summaryVm.currentInvestment = Array.from(positions.values()).reduce((sum, row) => sum + row.averagePrice * row.sharesLeft, 0);
         
         // Current shares left
-        summaryVm.currentSharesLeft = lastTransaction?.sharesLeft || 0;
+        summaryVm.currentSharesLeft = Array.from(positions.values()).reduce((sum, row) => sum + row.sharesLeft, 0);
 
         // Current price
-        if (priceList === undefined) {
+        if (priceList === undefined || (lastTransaction && priceList.instrumentId !== lastTransaction.transaction.instrumentId)) {
             priceList = {
                 instrumentId: lastTransaction?.transaction.instrumentId || ""
             };
         }
         const currentPrice = this._priceListService.getPriceAndDateClosestToDate(Date.now(), priceList);
         summaryVm.currentPriceUpdated = currentPrice?.date;
-        summaryVm.currentPrice = currentPrice?.price || 0;
+        summaryVm.currentPrice = currentPrice?.price;
+        summaryVm.currentPriceSource = currentPrice?.source;
+        summaryVm.currentPriceAgeDays = currentPrice ? Math.floor(currentPrice.ageMilliseconds / 86_400_000) : undefined;
 
         // Current unrealized win
-        if (summaryVm.currentSharesLeft > 0) {
+        if (summaryVm.currentSharesLeft > 0 && summaryVm.currentPrice !== undefined) {
             summaryVm.currentUnrealizedWin = (summaryVm.currentPrice * summaryVm.currentSharesLeft) - summaryVm.currentInvestment;
         }
 

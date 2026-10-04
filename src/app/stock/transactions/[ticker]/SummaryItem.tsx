@@ -46,9 +46,9 @@ const SummaryItem: FC<Props> = ({title, value, showAsRedOrGreen}: Props) => {
     }
 
     return (
-        <Card css={getCardCss(value)}>
+        <Card role="group" aria-label={title} css={getCardCss(value)}>
             <Card.Body>
-                <Text css={getCssForValue(value)}>{value}</Text>
+                <Text css={getCssForValue(value)}>{value === undefined ? 'Unknown' : value}</Text>
             </Card.Body>
             <Card.Footer>
                 <Text b css={{textAlign: 'center'}}>{title}</Text>

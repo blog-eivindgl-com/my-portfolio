@@ -39,6 +39,7 @@ function Transactions({params}: {params: { ticker: string }}) {
         <h1>{stock?.ticker || 'Instrument'} - {stock?.name}</h1>
         {!stock && <p role="alert">Instrument unavailable or ticker ambiguous. Open an instrument from the list.</p>}
         {stock && <Link href={`/stock/transactions/${stock.id}/create`}>Create transaction</Link>}
+        <p><Link href="/experiment">Compare the experimental calculation policy</Link></p>
         <Summary vm={transactionsSummaryViewModel} />
         <TransactionsList vm={transactionListViewModel} /> 
     </Container>

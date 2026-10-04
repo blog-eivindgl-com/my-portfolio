@@ -12,6 +12,7 @@ type Props = {
 const TransactionsList: FC<Props> = ({vm}: Props) => {
     const orderUnknown = vm.orderWarnings.length > 0;
     const columns = [
+        { key: 'accountId', label: 'Account ID' },
         { key: 'actions', label: 'Actions' },
         { key: 'tradeTime', label: 'Trade time' },
         { key: 'tradeOrder', label: 'Retained trade order' },

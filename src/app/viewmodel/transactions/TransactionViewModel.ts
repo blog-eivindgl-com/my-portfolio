@@ -27,6 +27,8 @@ export default class TransactionViewModel {
         return this.transaction.description;
     }
 
+    get accountId(): string { return this.transaction.accountId; }
+
     get buy(): number | undefined {
         if (this.transaction.type === TransactionType.buy) {
             return this.transaction.price * this.transaction.shares + this.transaction.brokerage;

@@ -1,6 +1,9 @@
 export default class TransactionsSummaryViewModel {
     constructor() {}
     orderWarning?: string;
+    incompleteReason?: string;
+    currentPriceSource?: 'quote' | 'transaction' | 'unknown';
+    currentPriceAgeDays?: number;
     _currentUnrealizedWin: number | undefined;
     get currentUnrealizedWin(): number | undefined {
         return this._currentUnrealizedWin;
@@ -9,9 +12,9 @@ export default class TransactionsSummaryViewModel {
         this._currentUnrealizedWin = value;
     }
 
-    _totalRealizedWin: number | undefined;
-    get totalRealizedWin(): number {
-        return this._totalRealizedWin || 0;
+    _totalRealizedWin: number | undefined = 0;
+    get totalRealizedWin(): number | undefined {
+        return this._totalRealizedWin;
     }
     set totalRealizedWin(value: number | undefined) {
         this._totalRealizedWin = value;
@@ -58,7 +61,7 @@ export default class TransactionsSummaryViewModel {
     }
 
     get currentPriceUpdateString(): string | undefined {
-        if (this._currentPriceUpdated) {
+        if (this._currentPriceUpdated !== undefined) {
             const date = new Date(this._currentPriceUpdated);
             return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
         }
