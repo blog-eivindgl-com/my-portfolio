@@ -1,11 +1,15 @@
 "use client"
 import './globals.css'
-import { Inter } from 'next/font/google'
+import localFont from 'next/font/local'
 import { CssBaseline } from "@nextui-org/react";
 import { NextUIProvider, createTheme } from "@nextui-org/react";
 import { ThemeProvider as NextThemesProvider } from 'next-themes';
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = localFont({
+  src: './fonts/Inter-Variable.ttf',
+  display: 'swap',
+  weight: '100 900',
+})
 
 const lightTheme = createTheme({
   type: 'light',
