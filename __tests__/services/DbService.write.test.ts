@@ -1,5 +1,6 @@
 /** @jest-environment node */
 import 'fake-indexeddb/auto';
+import { baseline, allStores, readDomain } from '@/app/database/foundation';
 import database, { accountsTable, stockTable, transactionsTable } from '@/app/database/database.config';
 import DbService from '@/app/services/DbService';
 import { TransactionType } from '@/app/database/types/types';
@@ -16,6 +17,7 @@ beforeEach(async () => {
     await database.open();
     await accountsTable.bulkAdd([{ id: 'account-a', name: 'Synthetic A' }, { id: 'account-b', name: 'Synthetic B' }]);
     await stockTable.add({ ticker: 'SYNTH', name: 'Synthetic instrument' });
+    await database.transaction('rw', allStores, async () => baseline(database, await readDomain(database)));
 });
 afterAll(async () => { await database.delete(); database.close(); });
 

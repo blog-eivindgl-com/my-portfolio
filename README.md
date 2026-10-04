@@ -52,9 +52,9 @@ On Linux, use `yarn playwright install --with-deps chromium` when system browser
 
 Select an existing account and enter a complete trade date. Quantity and price must be finite and greater than zero; fees must be finite and nonnegative (default zero). Fractional units are supported. Use either `.` or `,` as a decimal separator, without thousands separators; for example, `1,250` means 1.25, not 1250. Exponents and hexadecimal input are rejected. Stored values remain JavaScript numbers; this is not a decimal-money or accounting-policy implementation.
 
-The initial date is the browser's local calendar day. A trade date is stored in the existing numeric format at UTC midnight and displayed as a UTC calendar day, so it does not shift across devices/time zones. Existing records are not rewritten; their UTC calendar day is displayed even if a historical timestamp is not midnight.
+The initial date is the browser's local calendar day. A trade date is stored in the existing numeric format at UTC midnight and displayed as a UTC calendar day, so it does not shift across devices/time zones. Existing records are not rewritten; their UTC calendar day is displayed even if a historical timestamp is not midnight. Optional trade time is a minute-precision `HH:mm` wall-clock label from the trade confirmation, stored separately without timezone conversion. Blank remains unknown; explicit `00:00` means midnight. Use one consistent trading clock per account/instrument. Missing or identical same-day times (including DST repeats) leave chronology ambiguous; the view labels it and withholds order-dependent calculations. Saved-record editing is not yet supported.
 
-The write service rechecks account/instrument existence atomically. Failed saves preserve input and allow retry. Successful saves require choosing **Create another transaction** before another trade can be entered. Retries reuse a save ID; a new transaction or an edit after failure gets a new ID. Two deliberate, otherwise identical trades remain separate records. These are local submission safeguards, not a persistent sync queue.
+The write service rechecks account/instrument existence atomically. Failed saves preserve input and allow retry. Successful saves require choosing **Create another transaction** before another trade can be entered. Retries reuse a save ID; a new transaction or an edit after failure gets a new ID. Two deliberate, otherwise identical trades remain separate records. The repository now saves each creation with a durable local outbox operation; no cloud transport or replay engine is implemented.
 
 ## Deployment target and origin
 
@@ -69,13 +69,13 @@ Runtime instrument routes are resolved from browser IndexedDB; no build-time dat
 
 ## Architecture and data safety
 
-- `src/app/database`: Dexie database `my-portfolio`, currently version 1; `stocks`, `accounts`, `transactions`, `stockPrices`.
+- `src/app/database`: Dexie database `my-portfolio`, currently version 2; four domain stores plus `entityStates`, `localState` and `outbox`.
 - `src/app/services`: validated transaction writes, database reads, price lookup and transaction calculations.
 - `src/app/viewmodel`: transaction/summary presentation values.
 - `src/app/accounts` and `src/app/stock`: browser forms and pages using live queries.
 - `test-fixtures/database`: synthetic historical layouts for future migration work; these are not an implemented import/export interface.
 
-The working portfolio remains in this browser profile/origin. **Backup** provides versioned JSON export, validated merge/replacement previews and atomic restore with a required downloaded pre-import recovery copy. [Read the format and recovery procedure](docs/backup-restore.md) before clearing storage or changing origins. A separate recovery-only archive preserves known historical/malformed fields but is not directly importable. No cloud synchronization or schema migration is implemented. Use isolated browser profiles and synthetic data for development; migration fixtures are not supported import files.
+The working portfolio remains in this browser profile/origin. **Backup** provides versioned JSON export, validated merge/replacement previews and atomic restore with a required downloaded pre-import recovery copy. [Read the format and recovery procedure](docs/backup-restore.md) before clearing storage or changing origins. A separate recovery-only archive preserves known historical/malformed fields but is not directly importable. This branch implements a limited v1-to-v2 database migration and local atomic outbox; cloud synchronization is not implemented. Backup format 2 deliberately rejects old format-1 files. See [issue 9 foundation scope](docs/issue-9-foundation.md) for migration limits, restore history semantics and remaining work. Use isolated browser profiles and synthetic data for development; migration fixtures are not supported import files.
 
 ## Known correctness and maintenance limits
 

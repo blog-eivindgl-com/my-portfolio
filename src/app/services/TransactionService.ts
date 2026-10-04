@@ -1,3 +1,4 @@
+import { orderTransactions } from './tradeChronology';
 import { IPriceList, ITransaction, TransactionType } from "../database/types/types";
 import TransactionListViewModel from "../viewmodel/transactions/TransactionListViewModel";
 import TransactionViewModel from "../viewmodel/transactions/TransactionViewModel";
@@ -12,10 +13,10 @@ export default class TransactionService {
             return new TransactionListViewModel([]);
         }
 
-        const tlvm = new TransactionListViewModel(
-            transactions.sort((t1, t2) => t1.date - t2.date)
-            .map(t => new TransactionViewModel(t)));
-
+        const ordered = orderTransactions(transactions);
+        const tlvm = new TransactionListViewModel(ordered.transactions.map(t => new TransactionViewModel(t)), ordered.warnings);
+        // Do not derive gains/balances from a display-only tie breaker.
+        if (ordered.warnings.length) return tlvm;
         // Calculate values not dependent on future transactions
         let sharesLeft = 0;
         let averagePrice = 0;
@@ -128,6 +129,10 @@ export default class TransactionService {
 
     getTransactionsSummaryViewModel(transactionListViewModel: TransactionListViewModel, priceList: IPriceList | undefined): TransactionsSummaryViewModel {
         const summaryVm = new TransactionsSummaryViewModel();
+        if (transactionListViewModel.orderWarnings.length) {
+            summaryVm.orderWarning = 'Calculations are unavailable because same-day trade order is unknown. Supply distinct trade times where known; equal times still need review.';
+            return summaryVm;
+        }
 
         // Calculate total realized win
         summaryVm.totalRealizedWin = 

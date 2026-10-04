@@ -1,25 +1,27 @@
 import { expect, Page, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
-import fixture from '../test-fixtures/backup/portfolio-v1.json';
-import { canonicalRecords, parseBackup, PortfolioRecords } from '../src/app/services/backupFormat';
+import fixture from '../test-fixtures/backup/portfolio-v2.json';
+import oldFixture from '../test-fixtures/backup/portfolio-v1.json';
+import { canonicalRecords, createBackup, parseBackup, PortfolioRecords } from '../src/app/services/backupFormat';
 
 const source = JSON.stringify(fixture);
+function encode(records: PortfolioRecords) {
+    const backup = createBackup(records);
+    backup.identity.entities = backup.identity.entities.map(entity => ({ ...entity, entityId: fixture.identity.entities.find(row => row.key === entity.key)?.entityId || entity.entityId }));
+    return JSON.stringify(backup);
+}
 const tables = ['accounts', 'stocks', 'transactions', 'stockPrices'];
 
 async function initialize(page: Page, seed = true) {
     await page.goto('/stock/transactions/SYNTH/create');
     await expect(page.getByText(/No accounts yet/)).toBeVisible();
-    if (seed) await page.evaluate(({ records, tables }) => new Promise<void>((resolve, reject) => {
-        const request = indexedDB.open('my-portfolio');
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => {
-            const db = request.result;
-            const tx = db.transaction(tables, 'readwrite');
-            for (const name of tables) for (const row of records[name as keyof typeof records]) tx.objectStore(name).add(row);
-            tx.oncomplete = () => { db.close(); resolve(); };
-            tx.onabort = () => { db.close(); reject(tx.error); };
-        };
-    }), { records: fixture.records, tables });
+    await page.goto('/backup');
+    if (seed) {
+        await preview(page);
+        await confirmRecovery(page);
+        await page.getByRole('button', { name: 'Apply restore', exact: true }).click();
+        await expect(page.getByText(/Restore complete/)).toBeVisible();
+    }
     await page.goto('/backup');
 }
 
@@ -80,7 +82,7 @@ test('exports and restores exactly into a fresh browser context', async ({ page,
 test('cancellation writes nothing; replacement requires confirmation and its recovery file restores the original', async ({ page }) => {
     await initialize(page);
     const before = canonicalRecords(await records(page));
-    const replacement = JSON.stringify({ ...fixture, records: { accounts: [{ id: 'replacement', name: 'Synthetic replacement' }], stocks: [], transactions: [], stockPrices: [] } });
+    const replacement = encode({ accounts: [{ id: 'replacement', name: 'Synthetic replacement' }], stocks: [], transactions: [], stockPrices: [] });
     await preview(page, replacement);
     await expect(page.getByRole('button', { name: 'Apply restore', exact: true })).toBeDisabled();
     expect(canonicalRecords(await records(page))).toBe(before);
@@ -103,7 +105,7 @@ test('cancellation writes nothing; replacement requires confirmation and its rec
     expect(canonicalRecords(await records(page))).toBe(before);
 });
 
-for (const [label, content] of [['malformed', '{'], ['newer format', JSON.stringify({ ...fixture, formatVersion: 99 })]]) {
+for (const [label, content] of [['malformed', '{'], ['old format', JSON.stringify(oldFixture)], ['newer format', JSON.stringify({ ...fixture, formatVersion: 99 })]]) {
     test(`rejects ${label} imports without changing records`, async ({ page }) => {
         await initialize(page);
         const before = canonicalRecords(await records(page));
@@ -146,16 +148,10 @@ test('another tab invalidates the preview and recovery confirmation before a new
     const oldRecovery = await confirmRecovery(page);
     const other = await context.newPage();
     await other.goto('/backup');
-    await other.evaluate(() => new Promise<void>((resolve, reject) => {
-        const request = indexedDB.open('my-portfolio');
-        request.onsuccess = () => {
-            const db = request.result;
-            const tx = db.transaction('accounts', 'readwrite');
-            tx.objectStore('accounts').add({ id: 'other-tab', name: 'Synthetic other tab' });
-            tx.oncomplete = () => { db.close(); resolve(); };
-            tx.onabort = () => { db.close(); reject(tx.error); };
-        };
-    }));
+    await other.goto('/accounts/create');
+    await other.getByLabel('Name:', { exact: true }).fill('Synthetic other tab');
+    await other.getByRole('button', { name: 'Create', exact: true }).click();
+    await expect.poll(async () => (await records(other)).accounts.length).toBe(3);
     await page.getByRole('button', { name: 'Apply restore', exact: true }).click();
     await expect(page.locator('main').getByRole('alert')).toContainText('changed after preview');
     expect((await records(page)).accounts).toHaveLength(3);
@@ -172,7 +168,7 @@ test('another tab invalidates the preview and recovery confirmation before a new
 test('partial replacement failure rolls back every store, preserves the preview, and retries without duplicates', async ({ page }) => {
     await initialize(page);
     const before = canonicalRecords(await records(page));
-    const changed = JSON.stringify({ ...fixture, records: { ...fixture.records, accounts: [...fixture.records.accounts, { id: 'new', name: 'Synthetic new' }] } });
+    const changed = encode({ ...fixture.records, accounts: [...fixture.records.accounts, { id: 'new', name: 'Synthetic new' }] });
     await preview(page, changed);
     await confirmRecovery(page);
     await page.evaluate(() => {

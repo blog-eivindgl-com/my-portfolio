@@ -19,7 +19,8 @@ export interface ITransaction {
     type: TransactionType, 
     ticker: string, 
     accountId: string, 
-    date: number, 
+    date: number,
+    tradeTime?: string, // Optional HH:mm wall time from the trade confirmation; no timezone conversion.
     description: string, 
     shares: number, 
     price: number, 

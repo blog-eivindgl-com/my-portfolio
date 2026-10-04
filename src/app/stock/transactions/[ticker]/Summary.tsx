@@ -17,6 +17,7 @@ const Summary: FC<Props> = ({vm}: Props) => {
         const d = new Date(date);
         return `Price ${d.toLocaleDateString()} ${d.toLocaleTimeString()}`;
     }
+    if (vm.orderWarning) return <Container><p role="alert">{vm.orderWarning}</p></Container>;
     return (
         <Container>
             <Grid.Container gap={2}>
