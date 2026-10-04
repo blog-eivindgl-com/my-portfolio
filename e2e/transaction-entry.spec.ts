@@ -5,10 +5,15 @@ import type { ITransaction } from '../src/app/database/types/types';
 // No user's browser profile or stored portfolio is opened.
 async function seed(page: Page) {
     await page.clock.setFixedTime(new Date('2024-01-01T00:30:00Z'));
-    await page.goto('/stock/transactions/SYNTH/create');
-    await expect(page.getByText(/No accounts yet/)).toBeVisible();
+    await page.goto('/');
     await page.evaluate(() => new Promise<void>((resolve, reject) => {
-        const open = indexedDB.open('my-portfolio');
+        const open = indexedDB.open('my-portfolio', 10);
+        open.onupgradeneeded = () => {
+            open.result.createObjectStore('accounts', { keyPath: 'id' });
+            open.result.createObjectStore('stocks', { keyPath: 'ticker' });
+            open.result.createObjectStore('transactions', { keyPath: 'id' });
+            open.result.createObjectStore('stockPrices', { keyPath: 'id' });
+        };
         open.onerror = () => reject(open.error);
         open.onsuccess = () => {
             const db = open.result;
@@ -20,7 +25,7 @@ async function seed(page: Page) {
             tx.onabort = () => { db.close(); reject(tx.error); };
         };
     }));
-    await page.reload();
+    await page.goto('/stock/transactions/SYNTH/create');
     await expect(page.getByLabel('Account')).toBeEnabled();
     await expect(page.getByRole('option', { name: 'Synthetic B' })).toHaveCount(1);
 }

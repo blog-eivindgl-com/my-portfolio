@@ -86,7 +86,7 @@ export default function BackupPage() {
         </details>
 
         <h2>Restore from a backup</h2>
-        <p>Only the documented version-1 format is supported (up to 10 MiB / 100,000 records). Unsupported historical records are reported, not repaired.</p>
+        <p>Only the documented version-2 format is supported; version-1 backups are incompatible (up to 10 MiB / 100,000 records). Unsupported historical records are reported, not repaired. A restore that changes records starts a new dataset history, preserving stable entity IDs and replacing the pending queue with one complete local baseline. Device identity and pending operations are never imported.</p>
         <fieldset disabled={busy || completed} className={styles.fields}>
             <legend>File and restore mode</legend>
             <label htmlFor="backup-file">Backup JSON file</label>

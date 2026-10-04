@@ -1,30 +1,36 @@
 /** @jest-environment node */
 import 'fake-indexeddb/auto';
 import Dexie from 'dexie';
+import { createPortfolioDatabase, baseline, allStores } from '@/app/database/foundation';
 import BackupService from '@/app/services/BackupService';
-import { canonicalRecords, createBackup, parseBackup, PortfolioRecords, serializeBackup, storeNames, validateBackup } from '@/app/services/backupFormat';
+import { canonicalRecords, createBackup as rawCreateBackup, makeIdentity, parseBackup, PortfolioRecords, serializeBackup, storeNames, validateBackup } from '@/app/services/backupFormat';
 import TransactionService from '@/app/services/TransactionService';
 import PriceListService from '@/app/services/PriceListService';
 import DbService from '@/app/services/DbService';
-import fixture from '../../test-fixtures/backup/portfolio-v1.json';
+import fixture from '../../test-fixtures/backup/portfolio-v2.json';
 
 const input = JSON.stringify(fixture);
+function createBackup(value: unknown) {
+    const backup = rawCreateBackup(value);
+    backup.identity.entities = backup.identity.entities.map(entity => ({ ...entity, entityId: fixture.identity.entities.find(row => row.key === entity.key)?.entityId || entity.entityId }));
+    return backup;
+}
 const empty = () => ({ accounts: [], stocks: [], transactions: [], stockPrices: [] });
 let db: Dexie;
 let service: BackupService;
 let counter = 0;
 beforeEach(async () => {
     jest.useRealTimers();
-    db = new Dexie(`synthetic-backup-tests-${++counter}`);
-    db.version(1).stores({ accounts: 'id,name', stocks: 'ticker,name', transactions: 'id,ticker,accountId,date', stockPrices: 'id,ticker,date' });
+    db = createPortfolioDatabase(`synthetic-backup-tests-${++counter}`);
     await db.open();
     service = new BackupService(db);
 });
 afterEach(async () => { await db.delete(); db.close(); jest.restoreAllMocks(); });
 
 async function seed(records: PortfolioRecords = parseBackup(input).records) {
-    await db.transaction('rw', [...storeNames], async () => {
+    await db.transaction('rw', allStores, async () => {
         for (const store of storeNames) await db.table(store).bulkAdd(records[store]);
+        await baseline(db, records, parseBackup(input).identity.entities);
     });
 }
 async function current() { return parseBackup(await service.exportBackup()).records; }
@@ -48,15 +54,15 @@ it('roundtrips all exact IDs, references, timestamps, descriptions and fractiona
 
 it('exports only the documented envelope and rejects unexpected fields instead of leaking credentials', async () => {
     await seed();
-    expect(Object.keys(JSON.parse(await service.exportBackup()))).toEqual(['format', 'formatVersion', 'databaseVersion', 'exportedAt', 'records']);
+    expect(Object.keys(JSON.parse(await service.exportBackup()))).toEqual(['format', 'formatVersion', 'databaseVersion', 'exportedAt', 'records', 'identity']);
     await db.table('accounts').update('synthetic-account-a', { accessToken: 'SYNTHETIC-NOT-A-TOKEN' });
     await expect(service.exportBackup()).rejects.toThrow('unsupported fields');
 });
 
 it.each([
     ['malformed JSON', '{'],
-    ['newer format', JSON.stringify({ ...fixture, formatVersion: 2 })],
-    ['newer database', JSON.stringify({ ...fixture, databaseVersion: 2 })],
+    ['newer format', JSON.stringify({ ...fixture, formatVersion: 99 })],
+    ['newer database', JSON.stringify({ ...fixture, databaseVersion: 99 })],
     ['wrong marker', JSON.stringify({ ...fixture, format: 'another-app' })],
     ['extra envelope fields', JSON.stringify({ ...fixture, token: 'SYNTHETIC' })],
     ['invalid export date', JSON.stringify({ ...fixture, exportedAt: 'tomorrow' })],
@@ -135,7 +141,7 @@ it('rejects stale previews when another tab changes data', async () => {
     const plan = await service.preview(input, 'replace');
     await db.table('accounts').add({ id: 'concurrent', name: 'Synthetic concurrent' });
     await expect(service.restore(plan, plan.recoveryText)).rejects.toThrow('changed after preview');
-    expect((await current()).accounts).toEqual([{ id: 'concurrent', name: 'Synthetic concurrent' }]);
+    expect(await db.table('accounts').toArray()).toEqual([{ id: 'concurrent', name: 'Synthetic concurrent' }]);
 });
 
 it('revalidates tampered input at the service write boundary', async () => {

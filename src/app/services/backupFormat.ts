@@ -1,3 +1,4 @@
+import { IdentitySnapshot, EntityState, domainKey, entityKey, newEntity, newId } from '../database/types/foundation';
 import { IAccount, IStock, IStockPrice, ITransaction } from '../database/types/types';
 import { validateTransaction } from './transactionValidation';
 
@@ -13,10 +14,11 @@ export interface PortfolioRecords {
 }
 export interface PortfolioBackup {
     format: 'my-portfolio-backup';
-    formatVersion: 1;
-    databaseVersion: 1;
+    formatVersion: 2;
+    databaseVersion: 2;
     exportedAt: string;
     records: PortfolioRecords;
+    identity: IdentitySnapshot;
 }
 export type RestoreMode = 'merge' | 'replace';
 export type RecordCounts = Record<StoreName, number>;
@@ -109,13 +111,13 @@ export function validateBackup(value: unknown): PortfolioBackup {
     if (value && typeof value === 'object' && (value as Record<string, unknown>).format === 'my-portfolio-recovery-only') {
         throw new BackupError('This is a recovery-only archive, not a directly importable backup. Keep it for reviewed recovery/migration; no records were changed.');
     }
-    const source = object(value, ['format', 'formatVersion', 'databaseVersion', 'exportedAt', 'records'], 'backup');
-    if (source.format !== 'my-portfolio-backup' || source.formatVersion !== 1 || source.databaseVersion !== 1) {
+    const source = object(value, ['format', 'formatVersion', 'databaseVersion', 'exportedAt', 'records', 'identity'], 'backup');
+    if (source.format !== 'my-portfolio-backup' || source.formatVersion !== 2 || source.databaseVersion !== 2) {
         throw new BackupError('Unsupported backup format or database version. Use a compatible app; no migration was attempted.');
     }
     if (typeof source.exportedAt !== 'string' || !Number.isFinite(Date.parse(source.exportedAt))
         || new Date(source.exportedAt).toISOString() !== source.exportedAt) throw new BackupError('backup.exportedAt: expected an ISO timestamp.');
-    return { format: 'my-portfolio-backup', formatVersion: 1, databaseVersion: 1, exportedAt: source.exportedAt, records: validateRecords(source.records) };
+    return { format: 'my-portfolio-backup', formatVersion: 2, databaseVersion: 2, exportedAt: source.exportedAt, records: validateRecords(source.records), identity: validateIdentity(source.identity, validateRecords(source.records)) };
 }
 
 export function parseBackup(content: string): PortfolioBackup {
@@ -125,8 +127,8 @@ export function parseBackup(content: string): PortfolioBackup {
     return validateBackup(value);
 }
 
-export function createBackup(records: unknown): PortfolioBackup {
-    return { format: 'my-portfolio-backup', formatVersion: 1, databaseVersion: 1, exportedAt: new Date().toISOString(), records: validateRecords(records) };
+export function createBackup(records: unknown, identity?: IdentitySnapshot): PortfolioBackup {
+    return { format: 'my-portfolio-backup', formatVersion: 2, databaseVersion: 2, exportedAt: new Date().toISOString(), records: validateRecords(records), identity: validateIdentity(identity || makeIdentity(validateRecords(records)), validateRecords(records)) };
 }
 
 export function serializeBackup(backup: PortfolioBackup): string {
@@ -167,4 +169,30 @@ export function combineRecords(current: PortfolioRecords, incoming: PortfolioRec
         });
     }
     return { records: validateRecords(result), conflicts, identical };
+}
+
+const uuid = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+export function makeIdentity(records: PortfolioRecords): IdentitySnapshot {
+    const revision = newId();
+    return { datasetId: newId(), entities: storeNames.flatMap(store => records[store].map(row => newEntity(store, domainKey(store, row), revision))) };
+}
+export function validateIdentity(value: unknown, records: PortfolioRecords): IdentitySnapshot {
+    const source = object(value, ['datasetId', 'entities'], 'identity');
+    if (!uuid(source.datasetId) || !Array.isArray(source.entities)) throw new BackupError('Invalid dataset identity.');
+    const expected = new Set(storeNames.flatMap(store => records[store].map(row => entityKey(store, recordKey(store, row)))));
+    if (source.entities.length !== expected.size) throw new BackupError('Identity snapshot must cover every record exactly once.');
+    const ids = new Set<string>();
+    const entities = source.entities.map((value, index) => {
+        const row = object(value, ['key', 'store', 'recordKey', 'entityId', 'revision', 'deleted', 'tradeOrder', 'currency', 'instrumentKind'], `identity.entities[${index}]`);
+        if (!storeNames.includes(row.store as StoreName) || typeof row.recordKey !== 'string' || row.key !== entityKey(row.store as StoreName, row.recordKey)
+            || !expected.delete(row.key as string) || !uuid(row.entityId) || ids.has(row.entityId) || !uuid(row.revision)
+            || row.deleted !== false || row.tradeOrder !== null || row.currency !== null || row.instrumentKind !== null) throw new BackupError('Invalid, duplicate or unsupported entity identity metadata.');
+        ids.add(row.entityId);
+        return row as unknown as EntityState;
+    });
+    return { datasetId: source.datasetId, entities };
+}
+export function canonicalSnapshot(backup: PortfolioBackup): string {
+    return JSON.stringify({ records: canonicalRecords(backup.records), datasetId: backup.identity.datasetId,
+        entities: [...backup.identity.entities].sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0) });
 }

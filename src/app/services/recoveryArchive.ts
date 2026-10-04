@@ -1,3 +1,4 @@
+import { foundationStores } from '../database/types/foundation';
 import { BACKUP_MAX_BYTES, BACKUP_MAX_RECORDS, BackupError, storeNames } from './backupFormat';
 
 // A forensic copy of the known portfolio fields, NOT an import/migration format.
@@ -25,7 +26,9 @@ export function exportRecoveryArchive(databaseName: string): Promise<string> {
         open.onerror = () => reject(new BackupError('Could not open existing browser storage for recovery. No file was exported.'));
         open.onsuccess = () => {
             const db = open.result;
-            const names = Array.from(db.objectStoreNames);
+            const actualNames = Array.from(db.objectStoreNames);
+            const excludedStores = actualNames.filter(name => (foundationStores as readonly string[]).includes(name));
+            const names = actualNames.filter(name => !excludedStores.includes(name));
             if (!names.length || names.some(name => !storeNames.includes(name as typeof storeNames[number]))) {
                 db.close(); reject(new BackupError('Recovery archive found unsupported stores. Nothing was exported to avoid including credentials or unrelated data.')); return;
             }
@@ -39,7 +42,7 @@ export function exportRecoveryArchive(databaseName: string): Promise<string> {
                 try {
                     const content = JSON.stringify({
                         format: 'my-portfolio-recovery-only', archiveVersion: 1, directlyImportable: false,
-                        exportedAt: new Date().toISOString(), databaseVersion: db.version, stores,
+                        exportedAt: new Date().toISOString(), databaseVersion: db.version, excludedStores, stores,
                     }, null, 2);
                     if (new TextEncoder().encode(content).length > BACKUP_MAX_BYTES) throw new BackupError('Recovery archive exceeds 10 MiB. Retain browser storage for specialist recovery.');
                     resolve(content);
