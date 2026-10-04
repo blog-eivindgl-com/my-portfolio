@@ -2,7 +2,6 @@ import { IPriceList, ITransaction } from "@/app/database/types/types";
 import DbService from "../../src/app/services/DbService";
 import PriceListService from "@/app/services/PriceListService";
 import TransactionService from "@/app/services/TransactionService";
-import exp from "constants";
 
 jest.mock("../../src/app/services/DbService");
 
@@ -53,10 +52,6 @@ const testTransactionsForTickerSalme: ITransaction[] = [
     }
 ];
 
-beforeAll(() => {
-    
-});
-
 describe("TransactionService.getTransactionListViewModel", () => {
     const mockDbService = jest.fn(() => ({
         getTransactionsForTicker: jest.fn(() => testTransactionsForTickerSalme),
@@ -75,10 +70,13 @@ describe("TransactionService.getTransactionListViewModel", () => {
         expect(result.TransactionViewModels).toHaveLength(4);
     });
     it("Sorts transactions by date", () => {
-        expect(result.TransactionViewModels[0].date).toBe("8.5.2023");
-        expect(result.TransactionViewModels[1].date).toBe("9.5.2023");
-        expect(result.TransactionViewModels[2].date).toBe("16.5.2023");
-        expect(result.TransactionViewModels[3].date).toBe("18.5.2023");
+        // Ordering is a data assertion, independent of localized UI formatting.
+        expect(result.TransactionViewModels.map(vm => vm.transaction.date)).toEqual([
+            Date.UTC(2023, 4, 8),
+            Date.UTC(2023, 4, 9),
+            Date.UTC(2023, 4, 16),
+            Date.UTC(2023, 4, 18),
+        ]);
     });
     it("Calculates number of shares left after selling parts of the shares", () => {
         expect(result.TransactionViewModels[2].sharesLeft).toBe(22);

@@ -1,0 +1,57 @@
+{
+  "fixtureVersion": 1,
+  "databaseVersion": 1,
+  "sourceRevision": "efb1b244f91393c75a6aa20a7be4672b2a48e488",
+  "stores": {
+    "stocks": "ticker, name",
+    "accounts": "id, name",
+    "transactions": "id, timestamp, type, ticker, accountId, date, description, shares, price, brokerage",
+    "stockPrices": "id, ticker, date, price"
+  },
+  "records": {
+    "stocks": [
+      {
+        "ticker": "SYNTH",
+        "name": "Synthetic example instrument"
+      }
+    ],
+    "accounts": [
+      {
+        "id": "10000000-0000-4000-8000-000000000001",
+        "name": "Synthetic example account"
+      }
+    ],
+    "transactions": [
+      {
+        "id": "20000000-0000-4000-8000-000000000001",
+        "type": 0,
+        "ticker": "SYNTH",
+        "accountId": "10000000-0000-4000-8000-000000000001",
+        "date": 1683504000000,
+        "description": "Synthetic buy",
+        "shares": 10,
+        "price": 100,
+        "brokerage": 1
+      },
+      {
+        "id": "20000000-0000-4000-8000-000000000002",
+        "type": 1,
+        "ticker": "SYNTH",
+        "accountId": "10000000-0000-4000-8000-000000000001",
+        "date": 1683590400000,
+        "description": "Synthetic partial sale",
+        "shares": 2,
+        "price": 110,
+        "brokerage": 1
+      }
+    ],
+    "stockPrices": [
+      {
+        "id": "30000000-0000-4000-8000-000000000001",
+        "ticker": "SYNTH",
+        "date": 1683676800000,
+        "price": 105
+      }
+    ]
+  }
+}

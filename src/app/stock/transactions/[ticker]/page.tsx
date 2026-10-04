@@ -13,12 +13,6 @@ import TransactionListViewModel from '@/app/viewmodel/transactions/TransactionLi
 import TransactionsSummaryViewModel from '@/app/viewmodel/transactions/TransactionsSummaryViewModel';
 import Summary from './Summary';
 
-export async function generateStaticParams() {
-    return (await stockTable.toArray()).map((value: IStock) => ({
-        ticker: value.ticker
-    }));
-}
-
 function Transactions({params}: {params: { ticker: string }}) {
     const {ticker} = params;
     const stock: IStock | undefined = useLiveQuery(
