@@ -1,4 +1,5 @@
 import { ITransaction, TransactionType } from "@/app/database/types/types";
+import { formatTradeDate } from '@/app/services/transactionValidation';
 
 export default class TransactionViewModel {
     constructor(public transaction: ITransaction) {
@@ -15,7 +16,7 @@ export default class TransactionViewModel {
     [key: string]: any
 
     get date(): string {
-        return new Date(this.transaction.date).toLocaleDateString();
+        return formatTradeDate(this.transaction.date);
     }
 
     get description(): string {
