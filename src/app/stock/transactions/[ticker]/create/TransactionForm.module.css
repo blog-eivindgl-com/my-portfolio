@@ -1,0 +1,18 @@
+.root { max-width: 40rem; margin: 2rem auto; padding: 0 1rem; }
+.fields { border: 0; padding: 0; display: grid; gap: 1rem; }
+.fields legend { padding: 1rem 0; font-weight: 600; }
+.fields label { display: block; margin-bottom: .35rem; }
+.fields input:not([type='radio']), .fields select {
+  width: 100%; padding: .65rem; border: 1px solid #888; border-radius: .35rem;
+  font: inherit; color: inherit; background: var(--nextui-colors-background, transparent);
+}
+.fields input[aria-invalid='true'], .fields select[aria-invalid='true'] { border-color: #b42318; }
+.type { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+.type label { margin: 0; }
+.error { color: #b42318; margin-top: .35rem; }
+.feedback { margin: 1rem 0; }
+.actions { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+.root button { font: inherit; padding: .55rem .85rem; border: 1px solid #888; border-radius: .35rem; cursor: pointer; }
+.root button:disabled { cursor: default; opacity: .6; }
+.root a { text-decoration: underline; }
+@media (prefers-color-scheme: dark) { .error { color: #ffb4ab; } }

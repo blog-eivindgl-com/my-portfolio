@@ -47,5 +47,11 @@ jobs:
         run: yarn test
       - name: Build Node server
         run: yarn build
+      - name: Install isolated browser-test runtime
+        if: runner.os == 'Linux'
+        run: yarn playwright install --with-deps chromium
+      - name: Test transaction entry in isolated browser contexts
+        if: runner.os == 'Linux'
+        run: yarn test:e2e
       - name: Ensure installation and checks did not rewrite tracked files
         run: git diff --exit-code

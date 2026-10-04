@@ -15,6 +15,8 @@ const config = {
   // setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
  
   testEnvironment: 'jest-environment-jsdom',
+  testMatch: ['<rootDir>/__tests__/**/*.test.[jt]s?(x)'],
+  moduleNameMapper: { '^@/(.*)$': '<rootDir>/src/$1' },
   fakeTimers: {
     enableGlobally: true,
     now: Date.UTC(2023, 4, 19, 12),

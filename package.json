@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit --incremental false",
     "test": "jest --runInBand",
     "test:watch": "jest --watch",
+    "test:e2e": "playwright test",
     "check": "yarn typecheck && yarn lint && yarn test && yarn build"
   },
   "dependencies": {
@@ -40,6 +41,8 @@
     "typescript": "5.0.4"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "fake-indexeddb": "6.2.5",
     "@next/swc-wasm-nodejs": "13.4.2",
     "@types/jest": "29.5.14",
     "postcss": "8.5.28",
