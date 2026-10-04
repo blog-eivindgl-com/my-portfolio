@@ -42,6 +42,18 @@ export function formatTradeDate(value: number, locale?: string): string {
     return new Date(value).toLocaleDateString(locale, { timeZone: 'UTC' });
 }
 
+// Existing finite numbers may stringify with an exponent, which entry deliberately rejects.
+// Expand that notation without rounding so an unrelated correction preserves the amount.
+export function decimalDraft(value: number): string {
+    const [coefficient, exponent] = String(value).split('e');
+    if (exponent === undefined) return coefficient;
+    const digits = coefficient.replace('.', '');
+    const point = (coefficient.includes('.') ? coefficient.indexOf('.') : coefficient.length) + Number(exponent);
+    if (point <= 0) return `0.${'0'.repeat(-point)}${digits}`;
+    if (point >= digits.length) return digits + '0'.repeat(point - digits.length);
+    return `${digits.slice(0, point)}.${digits.slice(point)}`;
+}
+
 // Accept either decimal separator, never grouping, exponent or hexadecimal syntax.
 function parseDecimal(value: string): number {
     const text = value.trim();

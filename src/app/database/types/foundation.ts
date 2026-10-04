@@ -10,7 +10,7 @@ export interface EntityState {
     recordKey: string;
     entityId: string;
     revision: string;
-    deleted: false; // Tombstones are reserved; deletion/edit commands are a later slice.
+    deleted: boolean; // Only transaction deletion is supported.
     tradeOrder: null; // Never infer trade order from a device sequence.
     currency: null;
     instrumentKind: null;
@@ -20,12 +20,19 @@ export interface LocalState {
     id: 'local'; datasetId: string; deviceId: string; nextSequence: number; headRevision: string;
 }
 interface OperationHeader {
-    id: string; operationVersion: 1; datasetId: string; deviceId: string; sequence: number;
-    baseRevision: null; createdAt: string;
+    id: string; operationVersion: 1 | 2; datasetId: string; deviceId: string; sequence: number;
+    baseRevision: string | null; createdAt: string;
 }
+export interface TransactionTarget {
+    commandId: string; datasetId: string; entityId: string; transactionId: string; expectedRevision: string;
+}
+export type TransactionCommand = (TransactionTarget & { kind: 'update'; record: ITransaction }) | (TransactionTarget & { kind: 'delete' });
+export interface TransactionSnapshot { datasetId: string; entity: EntityState; record: ITransaction }
 export type Operation = OperationHeader & (
     { kind: 'create'; entityId: string; payload: { store: DomainStore; record: DomainRecord; entity: EntityState; references: { accountId?: string; instrumentId?: string } } }
     | { kind: 'baseline'; entityId: null; payload: { records: PortfolioRecords; entities: EntityState[] } }
+    | { kind: 'update' | 'delete'; operationVersion: 2; entityId: string;
+        payload: { command: TransactionCommand; before: ITransaction; after: ITransaction | null; entity: EntityState } }
 );
 export const foundationStores = ['localState', 'entityStates', 'outbox'] as const;
 export const allStores = [...domainStores, ...foundationStores];
