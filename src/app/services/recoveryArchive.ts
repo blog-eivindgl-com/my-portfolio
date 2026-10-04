@@ -5,7 +5,7 @@ import { BACKUP_MAX_BYTES, BACKUP_MAX_RECORDS, BackupError, storeNames } from '.
 // Tags retain undefined, nonfinite numbers, negative zero, dates and numeric IDs.
 const fields = {
     accounts: ['id', 'name'], stocks: ['ticker', 'name'],
-    transactions: ['id', 'type', 'ticker', 'accountId', 'date', 'description', 'shares', 'price', 'brokerage', 'timestamp', 'order'],
+    transactions: ['id', 'type', 'ticker', 'accountId', 'date', 'description', 'shares', 'price', 'brokerage', 'timestamp', 'order', 'tradeTime'],
     stockPrices: ['id', 'ticker', 'date', 'price'],
 };
 

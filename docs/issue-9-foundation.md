@@ -9,7 +9,7 @@ This local branch starts from main `5ed6901f13cade931b026448331ac89d035ba96b`. D
 - A `create` operation, domain record, entity revision and device sequence update commit in one transaction. Retrying the same legacy save identity and identical values is a no-op; conflicting values are rejected. Separate connections serialize allocation using the shared `localState` store and a unique `[deviceId+sequence]` index. IDs never depend on record counts.
 - A new database or supported v1 migration creates one complete baseline operation. A stable browser device ID and sequence survive restart. Operations are durable local pending records; there is no transport, acknowledgement/pruning, hash chain or replay engine.
 - `operationVersion: 1` versions the local operation shape, **not a finalized cloud wire protocol**. Each creation has a stable operation/entity UUID and `baseRevision: null`; update/delete base-revision checks and tombstones remain future work. A baseline establishes all entity revisions at once. Creation payloads contain domain records and their canonical identity mapping.
-- Synchronization sequence/createdAt are separate from domain trade dates. `tradeOrder`, `currency` and `instrumentKind` remain null. No historical order, currency or accounting policy is inferred.
+- Synchronization sequence/createdAt are separate from domain trade dates. `tradeOrder`, `currency` and `instrumentKind` remain null. Optional domain `tradeTime` records a supplied `HH:mm` trade-confirmation clock label; it does not populate the reserved `tradeOrder` or change device sequencing. No historical time, currency or accounting policy is inferred.
 
 ## Migration and recovery
 
@@ -28,3 +28,11 @@ Backup format 2 deliberately rejects format 1, as authorized for test data. It c
 - Integration with any later accepted calculation policy (#17). Its dependency still applies to completion/release, even though this foundation can be developed independently.
 
 Never enable a cloud sender directly on this provisional local outbox. The owner authorized publishing this first slice as a draft PR for review. No real data reset, policy adoption, merge or deployment is included.
+
+## Optional trade time follow-up
+
+Owner feedback on PR #28 requested same-day chronology. `date` stays the existing UTC-encoded local trading calendar date; optional `tradeTime` is a minute-precision wall-clock label, without timezone/UTC-offset inference or browser-local conversion. Use the same source trading clock for an account/instrument. Blank is omitted from the record; explicit `00:00` remains distinct. Historical records are not assigned times.
+
+The list orders dates, then supplied times; unknown times are displayed afterward without claiming chronological position. Two or more records in one account/instrument/day with any missing time or equal times remain ambiguous. Stable input order only arranges display ties; UUID/device sequence is never chronology. Summary and derived table values are withheld while such ambiguity exists. Raw trades remain visible. Existing fee formulas are unchanged and PR #27 stays parked.
+
+DST gaps/repeats are not resolved: an unzoned clock label is not an absolute instant. The browser must preserve the label across UTC/Los Angeles/Oslo; repeated equal times still need review. Cross-timezone trading clocks, authoritative intraminute ordering, existing-record editing and future correction workflows remain outside this follow-up. Format-2 backups accept the optional field, preserve absence, and reject invalid times; the IndexedDB layout is unchanged.

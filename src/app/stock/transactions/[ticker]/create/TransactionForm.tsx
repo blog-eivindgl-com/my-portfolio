@@ -11,7 +11,7 @@ import styles from './TransactionForm.module.css';
 
 const dbService = new DbService();
 const emptyDraft = (accountId = '', date = ''): TransactionDraft => ({
-    type: TransactionType.buy, accountId, date, description: '', shares: '', price: '', brokerage: '0',
+    type: TransactionType.buy, accountId, date, tradeTime: '', description: '', shares: '', price: '', brokerage: '0',
 });
 
 export default function TransactionForm({ ticker }: { ticker: string }) {
@@ -124,6 +124,14 @@ export default function TransactionForm({ ticker }: { ticker: string }) {
                         aria-invalid={!!errors.date} aria-describedby={errors.date ? 'error-date' : undefined}
                         onChange={event => update('date', event.target.value)} />
                     {fieldError('date')}
+                </div>
+                <div>
+                    <label htmlFor="tradeTime">Trade time (optional)</label>
+                    <input id="tradeTime" name="tradeTime" type="time" step="60" value={draft.tradeTime || ''}
+                        aria-invalid={!!errors.tradeTime} aria-describedby={`time-help${errors.tradeTime ? ' error-tradeTime' : ''}`}
+                        onChange={event => update('tradeTime', event.target.value)} />
+                    <p id="time-help">Use the clock time on your trade confirmation, consistently for this account/instrument. It stays on the selected trade date without timezone conversion. Leave blank if unknown. Equal or missing times do not establish an order, including repeated daylight-saving times.</p>
+                    {fieldError('tradeTime')}
                 </div>
                 <div>
                     <label htmlFor="description">Description (optional)</label>

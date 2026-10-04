@@ -69,7 +69,8 @@ export function validateRecords(value: unknown): PortfolioRecords {
     });
     const transactions = (source.transactions as unknown[]).map((value, index) => {
         const path = `transactions[${index}]`;
-        const row = object(value, ['id', 'type', 'ticker', 'accountId', 'date', 'description', 'shares', 'price', 'brokerage'], path);
+        const hasTime = !!value && typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, 'tradeTime');
+        const row = object(value, ['id', 'type', 'ticker', 'accountId', 'date', 'description', 'shares', 'price', 'brokerage', ...(hasTime ? ['tradeTime'] : [])], path);
         try { validateTransaction(row); } catch { throw new BackupError(`${path}: invalid transaction fields or trade date.`); }
         for (const field of ['type', 'date', 'shares', 'price', 'brokerage']) number(row[field], `${path}.${field}`);
         // Validate without normalizing: preserve descriptions and all numeric values exactly.
@@ -77,6 +78,7 @@ export function validateRecords(value: unknown): PortfolioRecords {
             id: row.id as string, type: row.type as number, ticker: row.ticker as string,
             accountId: row.accountId as string, date: row.date as number, description: row.description as string,
             shares: row.shares as number, price: row.price as number, brokerage: row.brokerage as number,
+            ...(hasTime ? { tradeTime: row.tradeTime as string } : {}),
         };
     });
     const stockPrices = (source.stockPrices as unknown[]).map((value, index) => {
@@ -143,7 +145,7 @@ export function canonicalRecords(records: PortfolioRecords): string {
         sorted[store] = [...records[store]].sort((a, b) => {
             const left = recordKey(store, a), right = recordKey(store, b);
             return left < right ? -1 : left > right ? 1 : 0;
-        });
+        }).map(row => Object.fromEntries(Object.entries(row).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)));
     }
     return JSON.stringify(sorted);
 }

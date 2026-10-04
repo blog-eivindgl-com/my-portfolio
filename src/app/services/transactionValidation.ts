@@ -7,6 +7,7 @@ export interface TransactionDraft {
     type: TransactionType;
     accountId: string;
     date: string;
+    tradeTime?: string;
     description: string;
     shares: string;
     price: string;
@@ -53,6 +54,7 @@ function parseDecimal(value: string): number {
 export function transactionFromDraft(draft: TransactionDraft, id: string, ticker: string): ITransaction {
     return validateTransaction({
         id, ticker, type: draft.type, accountId: draft.accountId,
+        ...(draft.tradeTime ? { tradeTime: draft.tradeTime } : {}),
         date: parseTradeDate(draft.date), description: draft.description,
         shares: parseDecimal(draft.shares), price: parseDecimal(draft.price),
         brokerage: parseDecimal(draft.brokerage),
@@ -88,6 +90,9 @@ export function validateTransaction(value: unknown): ITransaction {
                 : `Enter a finite ${field === 'shares' ? 'quantity' : 'price'} greater than zero. Use . or , for decimals, without grouping.`;
         }
     }
+    if (Object.prototype.hasOwnProperty.call(input, 'tradeTime') && (typeof input.tradeTime !== 'string' || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(input.tradeTime))) {
+        errors.tradeTime = 'Enter a valid time (HH:mm), or leave it blank when unknown.';
+    }
     if (typeof input.description !== 'string') errors.description = 'Description must be text.';
     if (Object.keys(errors).length) throw new TransactionValidationError(errors);
     const transaction: ITransaction = {
@@ -95,6 +100,7 @@ export function validateTransaction(value: unknown): ITransaction {
         type: input.type as TransactionType, date: input.date as number,
         description: (input.description as string).trim(), shares: input.shares as number,
         price: input.price as number, brokerage: input.brokerage as number,
+        ...(typeof input.tradeTime === 'string' ? { tradeTime: input.tradeTime } : {}),
     };
     if (!Number.isFinite(transaction.shares * transaction.price + transaction.brokerage)) {
         throw new TransactionValidationError({ shares: 'The transaction value is too large to store safely.' });

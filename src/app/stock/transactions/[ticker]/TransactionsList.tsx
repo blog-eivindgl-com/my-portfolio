@@ -10,7 +10,9 @@ type Props = {
 }
 
 const TransactionsList: FC<Props> = ({vm}: Props) => {
+    const orderUnknown = vm.orderWarnings.length > 0;
     const columns = [
+        { key: 'tradeTime', label: 'Trade time' },
         {
             key: 'date',
             label: 'Date'
@@ -65,6 +67,7 @@ const TransactionsList: FC<Props> = ({vm}: Props) => {
         }
     ]
     const renderCell = (vm: TransactionViewModel, columnKey: Key) => {
+        if (orderUnknown && ['averagePrice', 'sharesLeft', 'worth', 'accumulatedBrokerage', 'unrealizedWin', 'realizedWin'].includes(String(columnKey))) return 'Unknown';
         const cellValue = vm[columnKey];
         switch (columnKey) {
             case "price":
@@ -115,6 +118,7 @@ const TransactionsList: FC<Props> = ({vm}: Props) => {
     };
     return <Container>
         <h2>Transactions</h2>
+        {orderUnknown && <div role="status"><p>Known times are shown first; unknown times and equal-time ties are display order only.</p>{vm.orderWarnings.map(warning => <p key={warning}>{warning}</p>)}</div>}
         <Table
             aria-label="Transactions"
             css={{

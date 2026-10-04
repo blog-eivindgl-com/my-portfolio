@@ -30,3 +30,13 @@ See [foundation contract and remaining issue scope](../issue-9-foundation.md). C
 Schema 2 cannot be opened by old main or PR #27. Test this branch on a separate origin/profile; changing branches does not downgrade browser storage. The recovery-only archive explicitly omits local foundation stores and is not an exact pending-queue backup.
 
 Remote CI results belong to the exact published PR head. Other browser engines, a fresh security audit and physical device-loss testing were outside local verification. Existing Next/NextUI warnings remain. The owner subsequently authorized a draft PR; issue 9 remains incomplete, with no merge, deployment or policy adoption.
+
+## Optional trade time follow-up (PR #28 owner comment)
+
+The authenticated owner `eloekset` requested optional same-day time entry in [this comment](https://github.com/blog-eivindgl-com/my-portfolio/pull/28#issuecomment-5982628122). The follow-up adds optional minute-precision `tradeTime` (`HH:mm`) with explicit unzoned trade-confirmation clock semantics, preserving date-only records and explicit midnight separately. No saved-record edit workflow is introduced.
+
+The list sorts supplied times without mutating its input. Missing/equal times within one account/instrument/day remain visibly ambiguous; derived calculations are withheld rather than using UUID, save order or sync sequence as chronology. Fee formulas are unchanged, and PR #27 remains parked. Currency and reserved identity tradeOrder metadata are unchanged.
+
+The new persistence/restore test exposed that the existing raw snapshot comparison depended on object property insertion order. Canonical domain comparisons now sort field names as well as records, preserving values and preventing a newly created transaction from falsely invalidating its own restore preview. Format-2 backup and recovery-only export preserve optional time; invalid times are rejected, and absent times remain absent.
+
+Local unit tests: 7 suites / 152 tests passed. Standalone typecheck passed (148.67 seconds), lint passed (1.28 seconds), production build passed (7.68 seconds). Browser coverage adds four US/European DST-boundary dates in every existing timezone project, blank versus midnight, and changing time before retry after a failed save. Existing exact backup round trips now include a timed transaction. All 87 local Edge cases passed (100.08 seconds). The initial 15 new-test failures were a table-versus-grid accessibility selector mismatch; correcting the selector required no application behavior change. Exact-head GitHub checks supply CI evidence after publication.

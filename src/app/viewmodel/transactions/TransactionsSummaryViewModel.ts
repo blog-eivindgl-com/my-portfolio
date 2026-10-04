@@ -1,5 +1,6 @@
 export default class TransactionsSummaryViewModel {
     constructor() {}
+    orderWarning?: string;
     _currentUnrealizedWin: number | undefined;
     get currentUnrealizedWin(): number | undefined {
         return this._currentUnrealizedWin;

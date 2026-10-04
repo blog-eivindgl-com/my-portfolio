@@ -31,6 +31,7 @@
         "ticker": "SYNTH-A",
         "accountId": "synthetic-account-a",
         "date": 1709164800000,
+        "tradeTime": "09:30",
         "description": "  Preserve whitespace  ",
         "shares": 10.125,
         "price": 12.375,
