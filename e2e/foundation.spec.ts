@@ -79,7 +79,7 @@ test('supported v1 records upgrade without reset into one baseline and stable me
     await page.goto('/accounts');
     await expect(page.getByText('Synthetic legacy', { exact: true })).toBeVisible();
     const data = await snapshot(page);
-    expect(data.version).toEqual([20]); expect(data.accounts).toEqual([{ id: 'legacy', name: 'Synthetic legacy' }]);
+    expect(data.version).toEqual([30]); expect(data.accounts).toEqual([{ id: 'legacy', name: 'Synthetic legacy' }]);
     expect(data.outbox).toHaveLength(1); expect(data.outbox[0].kind).toBe('baseline'); expect(data.entityStates).toHaveLength(1);
     await page.reload(); expect(await snapshot(page)).toEqual(data);
 });
@@ -109,5 +109,5 @@ test('interrupted browser migration rolls back and upgrades on a clean retry', a
     expect((await snapshot(page)).version).toEqual([10]);
     await page.goto('/accounts');
     await expect(page.getByText('Synthetic legacy', { exact: true })).toBeVisible();
-    const data = await snapshot(page); expect(data.version).toEqual([20]); expect(data.outbox).toHaveLength(1);
+    const data = await snapshot(page); expect(data.version).toEqual([30]); expect(data.outbox).toHaveLength(1);
 });

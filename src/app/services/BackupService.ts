@@ -12,6 +12,7 @@ export interface RestorePreview {
     mode: RestoreMode; incomingText: string; recoveryText: string;
     current: RecordCounts; incoming: RecordCounts; result: RecordCounts;
     conflicts: string[]; identical: number;
+    tombstones: { current: number; incoming: number; result: number };
 }
 function combine(current: PortfolioBackup, incoming: PortfolioBackup, mode: RestoreMode) {
     const result = combineRecords(current.records, incoming.records, mode);
@@ -21,6 +22,12 @@ function combine(current: PortfolioBackup, incoming: PortfolioBackup, mode: Rest
         const existing = known.get(row.key);
         if (!existing) entities.push(row);
         else if (existing.entityId !== row.entityId) result.conflicts.push(`${row.key} has a different stable identity.`);
+        else if (existing.deleted !== row.deleted) result.conflicts.push(`${row.key} conflicts with a deletion marker. Merge cannot delete or resurrect a transaction.`);
+    }
+    // Keep the current side of a deletion conflict in the preview; applying any conflict is blocked.
+    if (mode === 'merge') {
+        const deleted = new Set(current.identity.entities.filter(entity => entity.deleted).map(entity => entity.recordKey));
+        result.records.transactions = result.records.transactions.filter(row => !deleted.has(row.id));
     }
     // Check for a stable UUID assigned to two different legacy keys as well.
     createBackup(result.records, { datasetId: current.identity.datasetId, entities });
@@ -31,7 +38,7 @@ export default class BackupService {
     exportRecoveryArchive(): Promise<string> { return exportRecoveryArchive(this.db.name); }
     private async ready() {
         await this.db.open();
-        if (this.db.verno !== 2 || this.db.tables.length !== allStores.length) throw new BackupError('Unsupported historical/local database layout. Restore requires version 2; no reset was attempted.');
+        if (this.db.verno !== 3 || this.db.tables.length !== allStores.length) throw new BackupError('Unsupported historical/local database layout. Restore requires version 3; no reset was attempted.');
         for (const store of storeNames) {
             const key = this.db.table(store).schema.primKey;
             if (key.auto || key.keyPath !== (store === 'stocks' ? 'ticker' : 'id')) throw new BackupError('Unsupported historical identity layout.');
@@ -53,7 +60,8 @@ export default class BackupService {
         const combined = combine(current, incoming, mode);
         return { mode, incomingText: serializeBackup(incoming), recoveryText,
             current: counts(current.records), incoming: counts(incoming.records), result: counts(combined.records),
-            conflicts: combined.conflicts, identical: combined.identical };
+            conflicts: combined.conflicts, identical: combined.identical,
+            tombstones: { current: current.identity.entities.filter(row => row.deleted).length, incoming: incoming.identity.entities.filter(row => row.deleted).length, result: combined.entities.filter(row => row.deleted).length } };
     }
     async restore(preview: RestorePreview, savedRecoveryText: string): Promise<void> {
         const incoming = parseBackup(preview.incomingText), before = parseBackup(preview.recoveryText), saved = parseBackup(savedRecoveryText);
@@ -65,7 +73,7 @@ export default class BackupService {
             // Compare raw records first so an out-of-band legacy writer also invalidates a preview.
             if (canonicalRecords(await readDomain(this.db)) !== canonicalRecords(before.records)
                 || canonicalSnapshot(await this.snapshot()) !== canonicalSnapshot(before)) throw new BackupError('Portfolio changed after preview. Preview again and save a new recovery backup before restoring.');
-            if (preview.mode === 'merge' && canonicalRecords(combined.records) === canonicalRecords(before.records)) return;
+            if (preview.mode === 'merge' && canonicalSnapshot(createBackup(combined.records, { datasetId: before.identity.datasetId, entities: combined.entities })) === canonicalSnapshot(before)) return;
             for (const store of storeNames) await this.db.table(store).clear();
             for (const store of storeNames) await this.db.table(store).bulkAdd(combined.records[store]);
             // One new, complete baseline is queued atomically, with a new dataset ID.

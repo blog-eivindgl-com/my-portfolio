@@ -11,8 +11,8 @@ The supported file format is:
 ```json
 {
   "format": "my-portfolio-backup",
-  "formatVersion": 2,
-  "databaseVersion": 2,
+  "formatVersion": 3,
+  "databaseVersion": 3,
   "exportedAt": "2024-03-02T12:00:00.000Z",
   "records": {
     "accounts": [],
@@ -24,7 +24,7 @@ The supported file format is:
 }
 ```
 
-See [the synthetic example](../test-fixtures/backup/portfolio-v2.json). The envelope and all record objects require exactly their documented fields. Old version-1 files and unknown/newer versions are rejected before mutation. The owner explicitly accepted this backup-format break for existing test data. No legacy backup reader is included. This is distinct from the supported in-place database v1-to-v2 upgrade.
+The [format-2 synthetic example](../test-fixtures/backup/portfolio-v2.json) remains an accepted import. Current exports use format 3. See [transaction corrections and deletion recovery](transaction-corrections.md) for the current contract. The envelope and all record objects require exactly their documented fields. Valid version-2 files remain readable and are upgraded in memory. Old version-1 files and unknown/newer versions are rejected before mutation. The owner explicitly accepted this backup-format break for existing test data. No format-1 reader is included. This is distinct from the supported in-place database v1/v2-to-v3 upgrade.
 
 | Collection | Exact record fields | Validation |
 | --- | --- | --- |
@@ -33,13 +33,13 @@ See [the synthetic example](../test-fixtures/backup/portfolio-v2.json). The enve
 | transactions | `id`, `type`, `ticker`, `accountId`, `date`, `description`, `shares`, `price`, `brokerage`; optional `tradeTime` | If present, time must be a valid `HH:mm` string (00:00–23:59); absence means unknown, never midnight. Unique string ID; Buy=0/Sell=1; valid account/instrument references; UTC-midnight numeric trade date (years 0001–9999); positive finite quantity/price; finite nonnegative fees; text description |
 | stockPrices | `id`, `ticker`, `date`, `price` | Unique string ID; existing instrument; finite valid numeric timestamp; positive finite price |
 
-Every imported backup must be self-contained: references cannot depend on records that only happen to exist in the target browser. IDs, relationships, descriptions (including whitespace), and supported numeric values are retained without normalization. Numbers remain JavaScript numbers; no new currency/rounding or financial policy is introduced. Nonfinite values and negative zero are rejected by the validated format; use recovery-only export to preserve unsupported values. Maximum file size is 10 MiB UTF-8 and maximum total record count is 100,000, including the merged result. Larger datasets require a separately designed streaming recovery path.
+Every imported backup must be self-contained: references cannot depend on records that only happen to exist in the target browser. IDs, relationships, descriptions (including whitespace), and supported numeric values are retained without normalization. Numbers remain JavaScript numbers; no new currency/rounding or financial policy is introduced. Nonfinite values and negative zero are rejected by the validated format; use recovery-only export to preserve unsupported values. Maximum file size is 10 MiB UTF-8 and maximum total record count is 100,000 including deletion markers and the merged result. Larger datasets require a separately designed streaming recovery path.
 
 ## Preview and restore
 
 1. Choose a backup JSON file and explicitly choose a mode.
 2. Choose **Preview restore**. Nothing is written. Inspect current, incoming and resulting counts.
-3. **Merge** adds missing identities, skips exactly identical records, and blocks any same-ID/different-record conflict. It never overwrites. Different IDs remain separate records even if they look similar. **Replace** replaces all four collections with the backup, removing absent current records and using incoming values for matching IDs.
+3. Merge blocks live/deleted conflicts and never resurrects a tombstoned identity. Replacement also replaces deletion markers and can restore deleted transactions from an older live backup; it is explicit new-dataset recovery. **Merge** adds missing identities, skips exactly identical records, and blocks any same-ID/different-record conflict. It never overwrites. Different IDs remain separate records even if they look similar. **Replace** replaces all four collections with the backup, removing absent current records and using incoming values for matching IDs.
 4. Choose **Download recovery backup**. Verify that file is saved, then check its confirmation box. Replacement also requires confirming its removal/overwrite consequences. Keep this recovery file until after inspection of the restored portfolio.
 5. Choose **Apply restore** once. All four domain collections plus identity metadata, local state and outbox commit in one IndexedDB transaction. A failed/aborted transaction rolls back its clears and writes. The UI preserves the preview for retry after a storage failure. A successful operation disables further application until you explicitly choose another backup.
 6. Inspect the restored records. To undo a completed restore, import its `my-portfolio-before-restore-…json` file, explicitly choose **Replace**, and repeat the preview/recovery/confirmation steps. This also makes a recovery copy of the now-current state.
@@ -48,9 +48,9 @@ Every imported backup must be self-contained: references cannot depend on record
 
 The database is compared with the preview's exact canonical records, stable identities, revisions and dataset ID again inside the write transaction. Changes made by another tab after preview block restoration and require a new preview, recovery download and confirmation. There is no await of file dialogs or external work inside the write transaction. The recovery file is generated from the same consistent snapshot used by the preview; a mismatched copy is rejected at the service boundary.
 
-The version-2 identity snapshot has a UUID `datasetId` and exactly one entity entry per domain record. Each entry contains `key` (JSON `[store, recordKey]`), `store`, `recordKey`, canonical UUID `entityId`, UUID `revision`, `deleted: false`, and `tradeOrder`, `currency`, `instrumentKind` all `null`. The reserved identity `tradeOrder` is independent of the optional domain `tradeTime` wall-clock label. Unknown metadata and duplicate/unmapped IDs are rejected. Nulls preserve uncertainty; the current slice does not set currency, instrument kind or authoritative trade ordering.
+The version-3 identity snapshot has a UUID `datasetId` and exactly one live entity entry per domain record, plus transaction deletion markers. Each entry contains `key` (JSON `[store, recordKey]`), `store`, `recordKey`, canonical UUID `entityId`, UUID `revision`, `deleted: false` for live records or `true` for deleted transactions (with no domain row), and `tradeOrder`, `currency`, `instrumentKind` all `null`. The reserved identity `tradeOrder` is independent of the optional domain `tradeTime` wall-clock label. Unknown metadata and duplicate/unmapped IDs are rejected. Nulls preserve uncertainty; the current slice does not set currency, instrument kind or authoritative trade ordering.
 
-A restore that changes domain records creates a **new dataset ID** and atomically replaces the current pending queue with **one complete baseline operation**. Stable entity UUIDs survive; all entity revisions refer to that new local baseline. The browser retains its own device ID and monotonically increasing sequence; a fresh browser gets its own device ID. Imported dataset IDs/revisions are provenance for validation, not instructions to resume another device's sync history. An identical merge is a no-op. Merge rejects same legacy key/different stable identity as well as conflicting domain values.
+A restore that changes domain records or deletion markers creates a **new dataset ID** and atomically replaces the current pending queue with **one complete baseline operation**. Stable entity UUIDs survive; all entity revisions refer to that new local baseline. The browser retains its own device ID and monotonically increasing sequence; a fresh browser gets its own device ID. Imported dataset IDs/revisions are provenance for validation, not instructions to resume another device's sync history. An identical merge is a no-op. Merge rejects same legacy key/different stable identity as well as conflicting domain values.
 
 Portable backups deliberately omit device identity, sequence allocation, pending operation payloads, credentials and authorization state. They restore domain state and stable identities, not the exact old local queue. This is safe only while this slice has no active sync transport: a future connected restore requires an explicit protocol transition and must not reuse this behavior silently. No financial calculation policy is adopted. See [foundation scope](issue-9-foundation.md).
 

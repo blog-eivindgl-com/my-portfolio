@@ -86,7 +86,7 @@ export default function BackupPage() {
         </details>
 
         <h2>Restore from a backup</h2>
-        <p>Only the documented version-2 format is supported; version-1 backups are incompatible (up to 10 MiB / 100,000 records). Unsupported historical records are reported, not repaired. A restore that changes records starts a new dataset history, preserving stable entity IDs and replacing the pending queue with one complete local baseline. Device identity and pending operations are never imported.</p>
+        <p>Exports use version 3 and preserve transaction deletion markers. Version-2 files remain readable; version-1 files are incompatible (up to 10 MiB / 100,000 records including deletion markers). A restore that changes records or markers starts a new dataset history, preserving stable entity IDs and replacing local change history with one complete baseline. Device identity and pending operations are never imported.</p>
         <fieldset disabled={busy || completed} className={styles.fields}>
             <legend>File and restore mode</legend>
             <label htmlFor="backup-file">Backup JSON file</label>
@@ -100,6 +100,7 @@ export default function BackupPage() {
                 <option value="replace">Replace: replace all four record collections</option>
             </select>
             <p>Merge skips identical records and blocks conflicting IDs. It does not deduplicate different IDs. Replace removes current records absent from the backup and uses the backup&apos;s values for matching IDs.</p>
+            <p>Merge blocks live/deleted conflicts. Replacement is new-dataset recovery: it replaces deletion markers too and can restore previously deleted transactions from an older backup. Keep the recovery copy.</p>
             <button disabled={!content || !mode} onClick={() => run(async () => {
                 clearPreview();
                 const next = await service.preview(content, mode as RestoreMode);
@@ -115,6 +116,7 @@ export default function BackupPage() {
                 <thead><tr><th>Collection</th><th>Current</th><th>Backup</th><th>Result</th></tr></thead>
                 <tbody>{storeNames.map(store => <tr key={store}><th scope="row">{store}</th><td>{preview.current[store]}</td><td>{preview.incoming[store]}</td><td>{preview.result[store]}</td></tr>)}</tbody>
             </table>
+            <p>Transaction deletion markers: current {preview.tombstones.current}, backup {preview.tombstones.incoming}, result {preview.tombstones.result}.</p>
             {preview.mode === 'merge' && <p>{preview.identical} identical records will be skipped.</p>}
             {!!preview.conflicts.length && <div role="alert">
                 <p>{preview.conflicts.length} conflicting record identities block merge. Nothing will be overwritten. Choose another backup or explicitly preview replacement.</p>
@@ -129,7 +131,7 @@ export default function BackupPage() {
                     setMessage('Recovery download requested. Verify the file is saved before confirming below.');
                 })}>Download recovery backup</button>
                 <label><input type="checkbox" disabled={!recovery} checked={saved} onChange={event => setSaved(event.target.checked)} /> I verified that the recovery backup file is saved.</label>
-                {preview.mode === 'replace' && <label><input type="checkbox" checked={replaceConfirmed} onChange={event => setReplaceConfirmed(event.target.checked)} /> I understand replacement removes current records not in this backup and replaces matching records.</label>}
+                {preview.mode === 'replace' && <label><input type="checkbox" checked={replaceConfirmed} onChange={event => setReplaceConfirmed(event.target.checked)} /> I understand replacement removes current records not in this backup and replaces matching records. It starts a new dataset, replaces deletion markers and may restore previously deleted transactions.</label>}
                 <button disabled={!saved || !recovery || (preview.mode === 'replace' && !replaceConfirmed)} onClick={() => {
                     if (completed || !saved || !recovery || (preview.mode === 'replace' && !replaceConfirmed)) return;
                     void run(async () => {

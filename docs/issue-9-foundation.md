@@ -1,5 +1,7 @@
 # Issue 9: independent storage foundation
 
+This document records the original creation-only slice. The current schema-3 follow-up adds [transaction corrections, deletion markers and compatible backup recovery](transaction-corrections.md); its contract supersedes the editing/deletion limitations below. Cloud synchronization remains unimplemented.
+
 This local branch starts from main `5ed6901f13cade931b026448331ac89d035ba96b`. Draft PR #27 remains parked; none of its calculation changes or fee policy are adopted. This is a first slice of #9, not completion of its event-store/sync architecture.
 
 ## Implemented boundary

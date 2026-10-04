@@ -14,8 +14,8 @@ export interface PortfolioRecords {
 }
 export interface PortfolioBackup {
     format: 'my-portfolio-backup';
-    formatVersion: 2;
-    databaseVersion: 2;
+    formatVersion: 3;
+    databaseVersion: 3;
     exportedAt: string;
     records: PortfolioRecords;
     identity: IdentitySnapshot;
@@ -114,12 +114,15 @@ export function validateBackup(value: unknown): PortfolioBackup {
         throw new BackupError('This is a recovery-only archive, not a directly importable backup. Keep it for reviewed recovery/migration; no records were changed.');
     }
     const source = object(value, ['format', 'formatVersion', 'databaseVersion', 'exportedAt', 'records', 'identity'], 'backup');
-    if (source.format !== 'my-portfolio-backup' || source.formatVersion !== 2 || source.databaseVersion !== 2) {
+    const legacy = source.formatVersion === 2 && source.databaseVersion === 2;
+    if (source.format !== 'my-portfolio-backup' || (!legacy && (source.formatVersion !== 3 || source.databaseVersion !== 3))) {
         throw new BackupError('Unsupported backup format or database version. Use a compatible app; no migration was attempted.');
     }
     if (typeof source.exportedAt !== 'string' || !Number.isFinite(Date.parse(source.exportedAt))
         || new Date(source.exportedAt).toISOString() !== source.exportedAt) throw new BackupError('backup.exportedAt: expected an ISO timestamp.');
-    return { format: 'my-portfolio-backup', formatVersion: 2, databaseVersion: 2, exportedAt: source.exportedAt, records: validateRecords(source.records), identity: validateIdentity(source.identity, validateRecords(source.records)) };
+    const records = validateRecords(source.records), identity = validateIdentity(source.identity, records);
+    if (legacy && identity.entities.some(entity => entity.deleted)) throw new BackupError('Format 2 cannot contain deletion markers.');
+    return { format: 'my-portfolio-backup', formatVersion: 3, databaseVersion: 3, exportedAt: source.exportedAt, records, identity };
 }
 
 export function parseBackup(content: string): PortfolioBackup {
@@ -130,7 +133,7 @@ export function parseBackup(content: string): PortfolioBackup {
 }
 
 export function createBackup(records: unknown, identity?: IdentitySnapshot): PortfolioBackup {
-    return { format: 'my-portfolio-backup', formatVersion: 2, databaseVersion: 2, exportedAt: new Date().toISOString(), records: validateRecords(records), identity: validateIdentity(identity || makeIdentity(validateRecords(records)), validateRecords(records)) };
+    return { format: 'my-portfolio-backup', formatVersion: 3, databaseVersion: 3, exportedAt: new Date().toISOString(), records: validateRecords(records), identity: validateIdentity(identity || makeIdentity(validateRecords(records)), validateRecords(records)) };
 }
 
 export function serializeBackup(backup: PortfolioBackup): string {
@@ -182,16 +185,19 @@ export function validateIdentity(value: unknown, records: PortfolioRecords): Ide
     const source = object(value, ['datasetId', 'entities'], 'identity');
     if (!uuid(source.datasetId) || !Array.isArray(source.entities)) throw new BackupError('Invalid dataset identity.');
     const expected = new Set(storeNames.flatMap(store => records[store].map(row => entityKey(store, recordKey(store, row)))));
-    if (source.entities.length !== expected.size) throw new BackupError('Identity snapshot must cover every record exactly once.');
-    const ids = new Set<string>();
+    if (source.entities.length > BACKUP_MAX_RECORDS) throw new BackupError('Backup exceeds the record and deletion-marker limit.');
+    const ids = new Set<string>(), keys = new Set<string>();
     const entities = source.entities.map((value, index) => {
         const row = object(value, ['key', 'store', 'recordKey', 'entityId', 'revision', 'deleted', 'tradeOrder', 'currency', 'instrumentKind'], `identity.entities[${index}]`);
-        if (!storeNames.includes(row.store as StoreName) || typeof row.recordKey !== 'string' || row.key !== entityKey(row.store as StoreName, row.recordKey)
-            || !expected.delete(row.key as string) || !uuid(row.entityId) || ids.has(row.entityId) || !uuid(row.revision)
-            || row.deleted !== false || row.tradeOrder !== null || row.currency !== null || row.instrumentKind !== null) throw new BackupError('Invalid, duplicate or unsupported entity identity metadata.');
-        ids.add(row.entityId);
-        return row as unknown as EntityState;
+        if (!storeNames.includes(row.store as StoreName) || typeof row.recordKey !== 'string' || !row.recordKey.trim() || row.key !== entityKey(row.store as StoreName, row.recordKey)
+            || keys.has(row.key as string) || !uuid(row.entityId) || ids.has(row.entityId) || !uuid(row.revision)
+            || typeof row.deleted !== 'boolean' || row.tradeOrder !== null || row.currency !== null || row.instrumentKind !== null
+            || (row.deleted ? row.store !== 'transactions' || expected.has(row.key as string) : !expected.delete(row.key as string))) throw new BackupError('Invalid, duplicate or unsupported entity identity metadata.');
+        ids.add(row.entityId); keys.add(row.key as string);
+        return { key: row.key, store: row.store, recordKey: row.recordKey, entityId: row.entityId, revision: row.revision,
+            deleted: row.deleted, tradeOrder: null, currency: null, instrumentKind: null } as EntityState;
     });
+    if (expected.size) throw new BackupError('Identity snapshot must cover every record exactly once.');
     return { datasetId: source.datasetId, entities };
 }
 export function canonicalSnapshot(backup: PortfolioBackup): string {

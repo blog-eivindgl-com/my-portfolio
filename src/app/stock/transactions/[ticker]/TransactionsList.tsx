@@ -12,6 +12,7 @@ type Props = {
 const TransactionsList: FC<Props> = ({vm}: Props) => {
     const orderUnknown = vm.orderWarnings.length > 0;
     const columns = [
+        { key: 'actions', label: 'Actions' },
         { key: 'tradeTime', label: 'Trade time' },
         {
             key: 'date',
@@ -70,6 +71,8 @@ const TransactionsList: FC<Props> = ({vm}: Props) => {
         if (orderUnknown && ['averagePrice', 'sharesLeft', 'worth', 'accumulatedBrokerage', 'unrealizedWin', 'realizedWin'].includes(String(columnKey))) return 'Unknown';
         const cellValue = vm[columnKey];
         switch (columnKey) {
+            case 'actions':
+                return <a href={`/stock/transactions/${encodeURIComponent(vm.transaction.ticker)}/edit/${encodeURIComponent(vm.transaction.id)}`}>Edit / delete</a>;
             case "price":
             case "averagePrice":
             case "brokerage":

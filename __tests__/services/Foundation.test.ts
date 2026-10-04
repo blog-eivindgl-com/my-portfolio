@@ -122,7 +122,7 @@ it('rejects old backup format and newer database versions without mutations', as
     await expect(service.preview(JSON.stringify({ ...fixture, formatVersion: 1, databaseVersion: 1 }), 'replace')).rejects.toThrow();
     expect(await snapshot()).toEqual(before);
     db.close();
-    const newer = new Dexie(db.name); newer.version(3).stores({ ...legacySchema, localState: 'id', entityStates: 'key,&entityId,store,recordKey', outbox: 'id,&[deviceId+sequence],datasetId' }); await newer.open(); newer.close();
+    const newer = new Dexie(db.name); newer.version(4).stores({ ...legacySchema, localState: 'id', entityStates: 'key,&entityId,store,recordKey', outbox: 'id,&[deviceId+sequence],datasetId' }); await newer.open(); newer.close();
     await expect(db.open()).rejects.toThrow();
 });
 
