@@ -1,6 +1,6 @@
 # My Portfolio
 
-A local-browser portfolio prototype built with Next.js, React, NextUI and Dexie/IndexedDB. Current functionality covers accounts, instruments, buy/sell entry and per-ticker transaction summaries. Portfolio-wide reporting, validated corrections, backup/restore, migrations and OneDrive/Google Drive sync are planned in [the roadmap](https://github.com/blog-eivindgl-com/my-portfolio/issues/14).
+A local-browser portfolio prototype built with Next.js, React, NextUI and Dexie/IndexedDB. Current functionality covers accounts, instruments, validated buy/sell entry, per-ticker transaction summaries and local JSON backup/restore. Portfolio-wide reporting, validated corrections, migrations and OneDrive/Google Drive sync are planned in [the roadmap](https://github.com/blog-eivindgl-com/my-portfolio/issues/14).
 
 ## Reproducible setup
 
@@ -75,7 +75,7 @@ Runtime instrument routes are resolved from browser IndexedDB; no build-time dat
 - `src/app/accounts` and `src/app/stock`: browser forms and pages using live queries.
 - `test-fixtures/database`: synthetic historical layouts for future migration work; these are not an implemented import/export interface.
 
-Only this browser profile/origin holds the current records. There is no implemented backup, cloud synchronization, migration or recovery workflow. Do not clear site storage, switch origins, or load fixtures into a real portfolio expecting recovery. Use isolated browser profiles and synthetic data for development. Recovery and migration implementations are tracked in #16 and #9; do not treat fixture capture as evidence that migrations are supported.
+The working portfolio remains in this browser profile/origin. **Backup** provides versioned JSON export, validated merge/replacement previews and atomic restore with a required downloaded pre-import recovery copy. [Read the format and recovery procedure](docs/backup-restore.md) before clearing storage or changing origins. A separate recovery-only archive preserves known historical/malformed fields but is not directly importable. No cloud synchronization or schema migration is implemented. Use isolated browser profiles and synthetic data for development; migration fixtures are not supported import files.
 
 ## Known correctness and maintenance limits
 
