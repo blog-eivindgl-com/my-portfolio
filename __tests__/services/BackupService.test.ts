@@ -7,7 +7,7 @@ import { canonicalRecords, createBackup as rawCreateBackup, makeIdentity, parseB
 import TransactionService from '@/app/services/TransactionService';
 import PriceListService from '@/app/services/PriceListService';
 import DbService from '@/app/services/DbService';
-import { calculateExperimentalPortfolio } from '@/app/services/experimentalPortfolio';
+import { calculatePortfolio } from '@/app/services/portfolioCalculations';
 import fixture from '../../test-fixtures/backup/portfolio-v4.json';
 
 const input = JSON.stringify(fixture);
@@ -51,8 +51,8 @@ it('roundtrips all exact IDs, references, timestamps, descriptions and fractiona
         });
     };
     expect(calculations(await current())).toEqual(calculations(before));
-    expect(calculateExperimentalPortfolio(await current(), { asOf: Date.UTC(2024, 2, 3) }))
-        .toEqual(calculateExperimentalPortfolio(before, { asOf: Date.UTC(2024, 2, 3) }));
+    expect(calculatePortfolio(await current(), { asOf: Date.UTC(2024, 2, 3) }))
+        .toEqual(calculatePortfolio(before, { asOf: Date.UTC(2024, 2, 3) }));
 });
 
 it('exports only the documented envelope and rejects unexpected fields instead of leaking credentials', async () => {

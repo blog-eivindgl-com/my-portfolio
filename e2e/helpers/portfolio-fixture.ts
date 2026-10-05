@@ -6,10 +6,10 @@ export const instruments = [
     { id: instrumentId, name: 'Synthetic share', ticker: 'SYNTH', instrumentKind: null, currency: null, exchange: null, isin: null },
     { id: otherInstrumentId, name: 'Synthetic fund', ticker: null, instrumentKind: null, currency: null, exchange: null, isin: null },
 ];
-export async function restoreExperiment(page: Page, transactions: PortfolioRecords['transactions'], stockPrices: PortfolioRecords['stockPrices'], stocks = instruments) {
+export async function restorePortfolio(page: Page, transactions: PortfolioRecords['transactions'], stockPrices: PortfolioRecords['stockPrices'], stocks = instruments) {
     const text = JSON.stringify(createBackup({ accounts: [{ id: 'A', name: 'Synthetic A' }, { id: 'B', name: 'Synthetic B' }], instruments: stocks, transactions, stockPrices }));
     await page.goto('/backup');
-    await page.getByLabel('Backup JSON file').setInputFiles({ name: 'synthetic-experiment.json', mimeType: 'application/json', buffer: Buffer.from(text) });
+    await page.getByLabel('Backup JSON file').setInputFiles({ name: 'synthetic-portfolio.json', mimeType: 'application/json', buffer: Buffer.from(text) });
     await expect(page.getByText(/File loaded/)).toBeVisible();
     await page.getByLabel('Restore mode', { exact: true }).selectOption('replace');
     await page.getByRole('button', { name: 'Preview restore', exact: true }).click();

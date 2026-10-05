@@ -1,6 +1,8 @@
 export default class TransactionsSummaryViewModel {
     constructor() {}
     orderWarning?: string;
+    pendingFees?: number;
+    valuationNote?: string;
     incompleteReason?: string;
     currentPriceSource?: 'quote' | 'transaction' | 'unknown';
     currentPriceAgeDays?: number;

@@ -1,6 +1,6 @@
 /** @jest-environment node */
 import Decimal from 'decimal.js';
-import { calculateExperimentalPortfolio, parseTrialTime, PortfolioInput, selectTrialQuote, trialMoney } from '@/app/services/experimentalPortfolio';
+import { calculatePortfolio, parseValuationTime, PortfolioInput, selectPortfolioQuote, formatMoney } from '@/app/services/portfolioCalculations';
 import { ITransaction, TransactionType } from '@/app/database/types/types';
 import TransactionService from '@/app/services/TransactionService';
 import PriceListService from '@/app/services/PriceListService';
@@ -15,17 +15,17 @@ const input = (transactions: ITransaction[]): PortfolioInput => ({
     instruments: [{ id: '11111111-1111-4111-8111-111111111111', name: 'Synthetic', ticker: 'SYNTH', instrumentKind: null, currency: null, exchange: null, isin: null }, { id: '22222222-2222-4222-8222-222222222222', name: 'Synthetic other', ticker: null, instrumentKind: null, currency: null, exchange: null, isin: null }],
     transactions, stockPrices: [{ id: 'quote', instrumentId: '11111111-1111-4111-8111-111111111111', date: day(10), price: 100 }],
 });
-const calculate = (data: PortfolioInput) => calculateExperimentalPortfolio(data, { asOf: day(20), staleAfterDays: 30 });
+const calculate = (data: PortfolioInput) => calculatePortfolio(data, { asOf: day(20), staleAfterDays: 30 });
 
-it('makes the disputed partial-sale components and cash/fee reconciliation explicit', () => {
+it('charges the entire fee balance on a partial sale and keeps remaining trade cost free of fees', () => {
     const position = calculate(input([buy(), sell()])).positions[0];
-    expect(position).toMatchObject({ quantity: '6', remainingCost: '606', realizedGain: '74', marketValue: '600', unrealizedGain: '-6', buyFees: '10', allocatedBuyFees: '4', remainingBuyFees: '6', sellFees: '2', netCashFlow: '-532' });
-    expect(position.ledger[1]).toMatchObject({ netProceeds: '478', releasedCost: '404', allocatedBuyFee: '4', realizedGain: '74' });
+    expect(position).toMatchObject({ quantity: '6', remainingCost: '600', realizedGain: '68', marketValue: '600', unrealizedGain: '0', buyFees: '10', deductedBuyFees: '10', pendingBuyFees: '0', sellFees: '2', netCashFlow: '-532' });
+    expect(position.ledger[1]).toMatchObject({ netProceeds: '478', releasedCost: '400', deductedBuyFee: '10', realizedGain: '68', accumulatedFees: '12', pendingFeesAfter: '0' });
     expect(new Decimal(position.realizedGain!).plus(position.unrealizedGain!).toString()).toBe('68');
     expect(new Decimal(position.netCashFlow!).plus(position.marketValue!).toString()).toBe('68');
 });
 
-it('demonstrates the legacy 68/600/0 split without claiming that its policy was accepted', () => {
+it('matches the confirmed fee rule in the existing transaction-service characterization', () => {
     const legacy = new TransactionService(new PriceListService(new DbService()));
     const prices = { instrumentId: '11111111-1111-4111-8111-111111111111', [day(10)]: 100 };
     const summary = legacy.getTransactionsSummaryViewModel(legacy.getTransactionListViewModel([buy(), sell()], prices), prices);
@@ -34,18 +34,18 @@ it('demonstrates the legacy 68/600/0 split without claiming that its policy was 
     expect(summary.currentUnrealizedWin).toBe(0);
 });
 
-it('includes purchase fees before any sale', () => {
-    expect(calculate(input([buy()])).positions[0]).toMatchObject({ remainingCost: '1010', realizedGain: '0', unrealizedGain: '-10' });
+it('keeps purchase fees pending outside remaining trade cost before any sale', () => {
+    expect(calculate(input([buy()])).positions[0]).toMatchObject({ remainingCost: '1000', realizedGain: '0', unrealizedGain: '0', pendingBuyFees: '10' });
 });
 
-it('allocates fees across repeated partial sales and closes without residual cost', () => {
+it('resets fees after each sale and closes without residual cost', () => {
     const position = calculate(input([buy(), sell(), sell('sell2', 3, 3, 120, 1), sell('sell3', 4, 3, 120, 1)])).positions[0];
-    expect(position).toMatchObject({ status: 'closed', quantity: '0', remainingCost: '0', averageCost: '0', realizedGain: '186', unrealizedGain: '0', allocatedBuyFees: '10', remainingBuyFees: '0', sellFees: '4' });
-    expect(position.ledger.filter(row => row.type === 1).map(row => row.allocatedBuyFee)).toEqual(['4', '3', '3']);
+    expect(position).toMatchObject({ status: 'closed', quantity: '0', remainingCost: '0', averageCost: '0', realizedGain: '186', unrealizedGain: '0', deductedBuyFees: '10', pendingBuyFees: '0', sellFees: '4' });
+    expect(position.ledger.filter(row => row.type === 1).map(row => row.deductedBuyFee)).toEqual(['10', '0', '0']);
 });
 
 it('restarts remaining cost on rebuy without losing prior realized gains', () => {
-    expect(calculate(input([buy(), sell('close', 2, 10, 120, 2), buy('rebuy', 3, 5, 80, 5)])).positions[0]).toMatchObject({ quantity: '5', remainingCost: '405', realizedGain: '188', unrealizedGain: '95', allocatedBuyFees: '10', remainingBuyFees: '5' });
+    expect(calculate(input([buy(), sell('close', 2, 10, 120, 2), buy('rebuy', 3, 5, 80, 5)])).positions[0]).toMatchObject({ quantity: '5', remainingCost: '400', realizedGain: '188', unrealizedGain: '100', deductedBuyFees: '10', pendingBuyFees: '5' });
 });
 
 it('isolates accounts then reconciles their same-instrument totals', () => {
@@ -86,9 +86,9 @@ it('flags oversells without borrowing another account holding or presenting a pa
 
 it('excludes future trades and quotes at an explicit cutoff while retaining future ledger rows', () => {
     const data = input([buy(), sell('future', 3, 10, 120, 0)]);
-    const report = calculateExperimentalPortfolio(data, { asOf: day(2) });
+    const report = calculatePortfolio(data, { asOf: day(2) });
     expect(report.futureTransactions).toBe(1);
-    expect(report.positions[0]).toMatchObject({ quantity: '10', remainingCost: '1010', realizedGain: '0', marketValue: null, unrealizedGain: null });
+    expect(report.positions[0]).toMatchObject({ quantity: '10', remainingCost: '1000', realizedGain: '0', marketValue: null, unrealizedGain: null });
     expect(report.positions[0].ledger[1].status).toBe('future');
     expect(report.positions[0].quote.ignoredFuture).toBe(1);
 });
@@ -103,16 +103,16 @@ it('keeps absent market values unknown and never substitutes a transaction price
 
 it('uses only the latest eligible actual quote with provenance and an explicit stale status', () => {
     const quotes = [{ id: 'past', instrumentId: '11111111-1111-4111-8111-111111111111', date: day(1), price: 110 }, { id: 'future', instrumentId: '11111111-1111-4111-8111-111111111111', date: day(20) + 1, price: 999 }];
-    expect(selectTrialQuote('11111111-1111-4111-8111-111111111111', quotes, day(20), 7)).toMatchObject({ status: 'stale', price: '110', date: day(1), ids: ['past'], ageMilliseconds: 19 * 86_400_000, ignoredFuture: 1 });
-    expect(calculateExperimentalPortfolio({ ...input([buy()]), stockPrices: quotes }, { asOf: day(20), staleAfterDays: 7 }).instruments[0].status).toBe('stale');
+    expect(selectPortfolioQuote('11111111-1111-4111-8111-111111111111', quotes, day(20), 7)).toMatchObject({ status: 'stale', price: '110', date: day(1), ids: ['past'], ageMilliseconds: 19 * 86_400_000, ignoredFuture: 1 });
+    expect(calculatePortfolio({ ...input([buy()]), stockPrices: quotes }, { asOf: day(20), staleAfterDays: 7 }).instruments[0].status).toBe('stale');
 });
 
 it('does not silently pick a conflicting latest quote or an older fallback', () => {
-    expect(selectTrialQuote('11111111-1111-4111-8111-111111111111', [{ id: 'old', instrumentId: '11111111-1111-4111-8111-111111111111', date: day(1), price: 90 }, { id: 'a', instrumentId: '11111111-1111-4111-8111-111111111111', date: day(2), price: 100 }, { id: 'b', instrumentId: '11111111-1111-4111-8111-111111111111', date: day(2), price: 101 }], day(3), 7)).toMatchObject({ status: 'conflicting', price: null, ids: ['a', 'b'] });
+    expect(selectPortfolioQuote('11111111-1111-4111-8111-111111111111', [{ id: 'old', instrumentId: '11111111-1111-4111-8111-111111111111', date: day(1), price: 90 }, { id: 'a', instrumentId: '11111111-1111-4111-8111-111111111111', date: day(2), price: 100 }, { id: 'b', instrumentId: '11111111-1111-4111-8111-111111111111', date: day(2), price: 101 }], day(3), 7)).toMatchObject({ status: 'conflicting', price: null, ids: ['a', 'b'] });
 });
 
 it('retains identical-quote provenance, epoch zero, and counts rejected invalid observations', () => {
-    expect(selectTrialQuote('11111111-1111-4111-8111-111111111111', [{ id: 'b', instrumentId: '11111111-1111-4111-8111-111111111111', date: 0, price: 12 }, { id: 'a', instrumentId: '11111111-1111-4111-8111-111111111111', date: 0, price: 12 }, { id: 'bad', instrumentId: '11111111-1111-4111-8111-111111111111', date: 1, price: NaN }], 10, 7)).toMatchObject({ price: '12', ids: ['a', 'b'], date: 0, ignoredInvalid: 1 });
+    expect(selectPortfolioQuote('11111111-1111-4111-8111-111111111111', [{ id: 'b', instrumentId: '11111111-1111-4111-8111-111111111111', date: 0, price: 12 }, { id: 'a', instrumentId: '11111111-1111-4111-8111-111111111111', date: 0, price: 12 }, { id: 'bad', instrumentId: '11111111-1111-4111-8111-111111111111', date: 1, price: NaN }], 10, 7)).toMatchObject({ price: '12', ids: ['a', 'b'], date: 0, ignoredInvalid: 1 });
 });
 
 it.each([{ shares: NaN }, { price: Infinity }, { type: 9 }, { date: NaN }, { accountId: 'missing' }, { id: '' }])('blocks invalid records %j without numeric gain artifacts', override => {
@@ -137,16 +137,16 @@ it('keeps different instruments separate without an invented total currency amou
 });
 
 it('documents half-up display rounding while leaving calculation strings intact', () => {
-    expect(trialMoney('1.005')).toBe('1.01');
-    expect(trialMoney('-1.005')).toBe('-1.01');
-    expect(trialMoney(null)).toBe('Unknown');
+    expect(formatMoney('1.005')).toBe('1.01');
+    expect(formatMoney('-1.005')).toBe('-1.01');
+    expect(formatMoney(null)).toBe('Unknown');
 });
 
 it('validates UTC cutoff text and rejects invalid replay options', () => {
-    expect(parseTrialTime('2024-02-29T12:34:56')).toBe(Date.UTC(2024, 1, 29, 12, 34, 56));
-    for (const value of ['2023-02-29T12:00', '2024-01-01T25:00', '2024-01-01T12:60', '']) expect(Number.isNaN(parseTrialTime(value))).toBe(true);
-    expect(() => calculateExperimentalPortfolio(input([]), { asOf: NaN })).toThrow();
-    expect(() => selectTrialQuote('11111111-1111-4111-8111-111111111111', [], NaN, 7)).toThrow();
+    expect(parseValuationTime('2024-02-29T12:34:56')).toBe(Date.UTC(2024, 1, 29, 12, 34, 56));
+    for (const value of ['2023-02-29T12:00', '2024-01-01T25:00', '2024-01-01T12:60', '']) expect(Number.isNaN(parseValuationTime(value))).toBe(true);
+    expect(() => calculatePortfolio(input([]), { asOf: NaN })).toThrow();
+    expect(() => selectPortfolioQuote('11111111-1111-4111-8111-111111111111', [], NaN, 7)).toThrow();
 });
 
 it.each(['time', 'retained order'] as const)('uses known %s before IDs for same-day replay', evidence => {
@@ -154,7 +154,7 @@ it.each(['time', 'retained order'] as const)('uses known %s before IDs for same-
         ? [{ ...sell('a', 1), tradeTime: '14:00' }, { ...buy('z', 1), tradeTime: '09:00' }]
         : [{ ...sell('a', 1), tradeOrder: 20 }, { ...buy('z', 1), tradeOrder: 10 }];
     const report = calculate(input(records));
-    expect(report.positions[0]).toMatchObject({ realizedGain: '74', remainingCost: '606' });
+    expect(report.positions[0]).toMatchObject({ realizedGain: '68', remainingCost: '600' });
     expect(report.positions[0].ledger.map(row => row.id)).toEqual(['z', 'a']);
     expect(calculate(input([...records].reverse()))).toEqual(report);
 });
@@ -176,8 +176,8 @@ it('does not make same-type display ordering into accounting evidence', () => {
 });
 
 it('includes the entire trade calendar day without treating a wall clock label as a UTC instant', () => {
-    const report = calculateExperimentalPortfolio(input([{ ...buy(), tradeTime: '23:59' }]), { asOf: day(1) + 1 });
-    expect(report.positions[0].remainingCost).toBe('1010');
+    const report = calculatePortfolio(input([{ ...buy(), tradeTime: '23:59' }]), { asOf: day(1) + 1 });
+    expect(report.positions[0].remainingCost).toBe('1000');
     expect(report.positions[0].ledger[0].tradeTime).toBe('23:59');
 });
 
@@ -185,7 +185,25 @@ it('keeps identical or missing tickers and metadata separate by native instrumen
     const data = input([buy(), trade('other', 1, 0, 2, 200, 0, 'A', '22222222-2222-4222-8222-222222222222')]);
     data.instruments = data.instruments.map(row => ({ ...row, ticker: 'SAME' }));
     const report = calculate(data);
-    expect(report.positions.map(row => row.remainingCost)).toEqual(['1010', '400']);
+    expect(report.positions.map(row => row.remainingCost)).toEqual(['1000', '400']);
     expect(report.positions[1].marketValue).toBeNull();
     expect(calculate({ ...data, instruments: data.instruments.map(row => ({ ...row, name: 'Renamed', ticker: null, currency: null })) })).toEqual(report);
+});
+
+it('resets fees on partial, consecutive and full sales, and accumulates only new buys between them', () => {
+    const position = calculate(input([buy(), sell(), buy('more', 3, 4, 200, 4), sell('partial', 4, 5, 180, 3), sell('close', 5, 5, 180, 2)])).positions[0];
+    expect(position.ledger.map(row => row.accumulatedFees)).toEqual(['10', '12', '4', '7', '2']);
+    expect(position.ledger.map(row => row.pendingFeesAfter)).toEqual(['10', '0', '4', '0', '0']);
+    expect(position.ledger.filter(row => row.type === 1).map(row => row.realizedGain)).toEqual(['68', '193', '198']);
+    expect(position).toMatchObject({ remainingCost: '0', realizedGain: '459', pendingBuyFees: '0', deductedBuyFees: '14' });
+});
+
+it('never consumes another account fee balance and reconciles pending fees separately from trade cost', () => {
+    const report = calculate(input([buy(), trade('b', 1, 0, 10, 200, 20, 'B'), sell()]));
+    expect(report.positions[0]).toMatchObject({ realizedGain: '68', remainingCost: '600', pendingBuyFees: '0' });
+    expect(report.positions[1]).toMatchObject({ realizedGain: '0', remainingCost: '2000', pendingBuyFees: '20' });
+    for (const position of report.positions) {
+        expect(new Decimal(position.realizedGain!).plus(position.unrealizedGain!).minus(position.pendingBuyFees!).toString())
+            .toBe(new Decimal(position.netCashFlow!).plus(position.marketValue!).toString());
+    }
 });

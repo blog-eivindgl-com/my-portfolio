@@ -1,0 +1,8 @@
+.tabs { display: flex; gap: .5rem; margin: 1rem 0; border-bottom: 1px solid #888; }
+.tabs button { padding: .65rem 1rem; border: 1px solid #888; border-radius: .35rem .35rem 0 0; background: transparent; color: inherit; cursor: pointer; }
+.tabs button[aria-selected="true"] { border-bottom: 3px solid #006fee; font-weight: bold; }
+.tabs button:focus-visible { outline: 3px solid #006fee; outline-offset: 2px; }
+.account { margin: 1.5rem 0; }
+.controls { display: flex; flex-wrap: wrap; gap: 1rem; margin: 1rem 0; align-items: end; }
+.controls label { display: flex; flex-direction: column; gap: .35rem; }
+.controls input { border: 1px solid #888; border-radius: .25rem; padding: .4rem; background: transparent; color: inherit; }

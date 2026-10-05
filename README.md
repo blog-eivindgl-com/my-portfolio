@@ -81,11 +81,11 @@ The working portfolio remains in this browser profile/origin. **Backup** provide
 
 ## Known correctness and maintenance limits
 
-- Creation now validates account selection, dates and transaction inputs. Transaction correction/deletion is revision-checked; historical malformed records are not repaired or reassigned. Account isolation, historical pricing and fee policy remain in #17. Passing input tests does not certify financial calculations.
+- Creation now validates account selection, dates and transaction inputs. Transaction correction/deletion is revision-checked; historical malformed records are not repaired or reassigned. The main instrument view calculates trade cost and fees separately per account; see the documented fee-at-each-sale convention. Passing input tests does not certify financial calculations.
 - Next.js 13.4.2 and the beta NextUI stack are retained to keep this change scoped to the build baseline. Next.js 13 is [outside the supported release policy](https://nextjs.org/support-policy).
 - The 4 October 2026 registry audit reports critical and high dependency advisories. See the verification record for counts and interpretation. This baseline is **not a security-approved production release**. A supported framework/UI and transitive-dependency upgrade must precede public/authenticated rollout; the security/release work is tracked in #22 and #23.
 - `yarn audit --json` is a separate online maintenance check and currently exits nonzero. It is not silently treated as a passing CI check. No automatic audit fixes, browser-data access or cloud credentials are part of this setup.
 
-## Calculation experiment
+## Instrument views and fees
 
-Open `/experiment` to compare the proposed fee allocation against the standard view. The accounting policy remains experimental and undecided. The read-only trial uses native instrument UUIDs, retained trade order and optional clock labels, and shows unknown currency metadata explicitly. See [the rules, cutoff semantics and worked example](docs/calculation-experiment.md) and [verification](docs/verification/issue-17.md).
+The instrument page offers Combined (default) and Per account tabs. Every sale charges the full accumulated fee balance plus its own fee, then resets that account/instrument balance. Both views use the same decimal calculation and preserve stored records. See [calculation rules and valuation limits](docs/instrument-calculations.md) and [verification](docs/verification/issue-17.md).

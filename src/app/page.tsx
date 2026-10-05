@@ -9,7 +9,6 @@ export default function Home() {
     <Container>
       <MyNavbar />
       <p><a href="/backup">Backup and restore your portfolio</a></p>
-      <p><a href="/experiment">Try the read-only calculation experiment (policy undecided)</a></p>
     </Container>
   )
 }

@@ -66,10 +66,10 @@ test('exports and restores exactly into a fresh browser context', async ({ page,
     const exported = await download(page, 'Export backup');
     expect(canonicalRecords(parseBackup(exported).records)).toBe(canonicalRecords(parseBackup(source).records));
     await page.clock.setFixedTime(new Date('2024-03-03T12:00:00Z'));
-    await page.goto('/experiment');
-    const originalMetrics = page.getByRole('region', { name: `synthetic-account-a / ${fixture.records.transactions[0].instrumentId}`, exact: true }).locator('dl');
+    await page.goto('/stock/transactions/' + fixture.records.transactions[0].instrumentId);
+    const originalMetrics = page.getByRole('region', { name: 'Instrument totals', exact: true });
     await expect(originalMetrics).toBeVisible();
-    const trialBefore = await originalMetrics.innerText();
+    const totalsBefore = await originalMetrics.innerText();
     const fresh = await browser.newContext({ baseURL: 'http://127.0.0.1:3100', timezoneId: info.project.use.timezoneId, locale: info.project.use.locale });
     try {
         const restored = await fresh.newPage();
@@ -82,8 +82,8 @@ test('exports and restores exactly into a fresh browser context', async ({ page,
         const reexported = await download(restored, 'Export backup');
         expect(canonicalRecords(parseBackup(reexported).records)).toBe(canonicalRecords(parseBackup(exported).records));
         await restored.clock.setFixedTime(new Date('2024-03-03T12:00:00Z'));
-        await restored.goto('/experiment');
-        await expect(restored.getByRole('region', { name: `synthetic-account-a / ${fixture.records.transactions[0].instrumentId}`, exact: true }).locator('dl')).toHaveText(trialBefore, { useInnerText: true });
+        await restored.goto('/stock/transactions/' + fixture.records.transactions[0].instrumentId);
+        await expect(restored.getByRole('region', { name: 'Instrument totals', exact: true })).toHaveText(totalsBefore, { useInnerText: true });
     } finally { await fresh.close(); }
 });
 
