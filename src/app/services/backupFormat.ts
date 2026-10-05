@@ -190,10 +190,10 @@ export function validateIdentity(value: unknown, records: PortfolioRecords): Ide
     const entities = source.entities.map((value, index) => {
         const row = object(value, ['key', 'store', 'recordKey', 'entityId', 'revision', 'deleted', 'tradeOrder', 'currency', 'instrumentKind'], `identity.entities[${index}]`);
         if (!storeNames.includes(row.store as StoreName) || typeof row.recordKey !== 'string' || !row.recordKey.trim() || row.key !== entityKey(row.store as StoreName, row.recordKey)
-            || keys.has(row.key as string) || !uuid(row.entityId) || ids.has(row.entityId) || !uuid(row.revision)
+            || keys.has(row.key as string) || !uuid(row.entityId) || ids.has(row.entityId.toLowerCase()) || !uuid(row.revision)
             || typeof row.deleted !== 'boolean' || row.tradeOrder !== null || row.currency !== null || row.instrumentKind !== null
             || (row.deleted ? row.store !== 'transactions' || expected.has(row.key as string) : !expected.delete(row.key as string))) throw new BackupError('Invalid, duplicate or unsupported entity identity metadata.');
-        ids.add(row.entityId); keys.add(row.key as string);
+        ids.add(row.entityId.toLowerCase()); keys.add(row.key as string);
         return { key: row.key, store: row.store, recordKey: row.recordKey, entityId: row.entityId, revision: row.revision,
             deleted: row.deleted, tradeOrder: null, currency: null, instrumentKind: null } as EntityState;
     });

@@ -1,5 +1,7 @@
 # Issue 9: independent storage foundation
 
+The next bounded prerequisite adds [identity/history integrity verification](identity-integrity.md) before native UUID-key migration.
+
 This document records the original creation-only slice. The current schema-3 follow-up adds [transaction corrections, deletion markers and compatible backup recovery](transaction-corrections.md); its contract supersedes the editing/deletion limitations below. Cloud synchronization remains unimplemented.
 
 The next local follow-up adds [revision-safe account and instrument name corrections](name-corrections.md), keeping identities, references, schema and backup format unchanged.

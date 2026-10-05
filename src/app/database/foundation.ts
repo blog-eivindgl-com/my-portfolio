@@ -1,4 +1,5 @@
 import Dexie, { Table } from 'dexie';
+import { inspectIdentityIntegrity } from './identityIntegrity';
 import { allStores, domainStores, domainKey, EntityState, LocalState, newEntity, newId, Operation } from './types/foundation';
 import { PortfolioRecords, validateRecords, validateIdentity } from '../services/backupFormat';
 interface TableAccess { table(name: string): Table; }
@@ -50,8 +51,12 @@ export function createPortfolioDatabase(name = 'my-portfolio'): Dexie {
             const state: LocalState = await tx.table('localState').get('local');
             const identity = validateIdentity({ datasetId: state?.datasetId, entities: await tx.table('entityStates').toArray() }, validateRecords(await readDomain(tx)));
             if (identity.entities.some(entity => entity.deleted)) throw new Error('Unexpected deletion marker in version 2. Records were retained.');
+            await inspectIdentityIntegrity(tx);
         });
     db.on('populate', tx => baseline(tx, { accounts: [], stocks: [], transactions: [], stockPrices: [] }));
+    // A ready subscriber holds explicit opens and auto-opened queries until the
+    // complete retained journal agrees with one consistent seven-store snapshot.
+    db.on('ready', () => db.transaction('r', allStores, () => inspectIdentityIntegrity(db)).then(() => undefined), true);
     const originalOpen = db.open.bind(db);
     db.open = () => Dexie.Promise.resolve(inspectLegacyLayout(name)).then(() => originalOpen());
     return db;
@@ -70,7 +75,7 @@ function inspectLegacyLayout(name: string): Promise<void> {
             const native = request.result;
             try {
                 if (native.version < 30 && native.version !== 10 && native.version !== 20) throw new Error('Unsupported historical schema version. Records were retained.');
-                if (native.version === 10 || native.version === 20) {
+                if (native.version === 10 || native.version === 20 || native.version === 30) {
                     const stores = Array.from(native.objectStoreNames);
                     const expectedStores = native.version === 10 ? domainStores : allStores;
                     if (stores.length !== expectedStores.length || stores.some(store => !(expectedStores as readonly string[]).includes(store))) throw new Error('Unsupported historical store layout. Records were retained; use recovery-only export.');
@@ -81,7 +86,7 @@ function inspectLegacyLayout(name: string): Promise<void> {
                         const allowedIndexes = legacySchema[store].split(',').slice(1).map(field => field.trim());
                         if (table.keyPath !== expected || table.autoIncrement || Array.from(table.indexNames).some(index => !allowedIndexes.includes(index))) throw new Error('Unsupported historical identity/order layout. Records were retained; use recovery-only export.');
                     }
-                    if (native.version === 20) for (const store of ['localState', 'entityStates', 'outbox']) {
+                    if (native.version === 20 || native.version === 30) for (const store of ['localState', 'entityStates', 'outbox']) {
                         const table = transaction.objectStore(store), expected = store === 'entityStates' ? 'key' : 'id';
                         if (table.keyPath !== expected || table.autoIncrement) throw new Error('Unsupported foundation identity layout. Records were retained.');
                     }
