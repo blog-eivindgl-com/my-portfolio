@@ -20,7 +20,7 @@ export interface LocalState {
     id: 'local'; datasetId: string; deviceId: string; nextSequence: number; headRevision: string;
 }
 interface OperationHeader {
-    id: string; operationVersion: 1 | 2; datasetId: string; deviceId: string; sequence: number;
+    id: string; operationVersion: 1 | 2 | 3; datasetId: string; deviceId: string; sequence: number;
     baseRevision: string | null; createdAt: string;
 }
 export interface TransactionTarget {
@@ -28,11 +28,19 @@ export interface TransactionTarget {
 }
 export type TransactionCommand = (TransactionTarget & { kind: 'update'; record: ITransaction }) | (TransactionTarget & { kind: 'delete' });
 export interface TransactionSnapshot { datasetId: string; entity: EntityState; record: ITransaction }
+export type NameStore = 'accounts' | 'stocks';
+export interface NameTarget {
+    commandId: string; datasetId: string; entityId: string; recordKey: string; expectedRevision: string;
+}
+export type RenameCommand = NameTarget & { kind: 'rename'; store: NameStore; name: string };
+export interface NamedEntitySnapshot { datasetId: string; entity: EntityState; record: IAccount | IStock }
 export type Operation = OperationHeader & (
     { kind: 'create'; entityId: string; payload: { store: DomainStore; record: DomainRecord; entity: EntityState; references: { accountId?: string; instrumentId?: string } } }
     | { kind: 'baseline'; entityId: null; payload: { records: PortfolioRecords; entities: EntityState[] } }
     | { kind: 'update' | 'delete'; operationVersion: 2; entityId: string;
         payload: { command: TransactionCommand; before: ITransaction; after: ITransaction | null; entity: EntityState } }
+    | { kind: 'rename'; operationVersion: 3; entityId: string;
+        payload: { command: RenameCommand; before: IAccount | IStock; after: IAccount | IStock; entity: EntityState } }
 );
 export const foundationStores = ['localState', 'entityStates', 'outbox'] as const;
 export const allStores = [...domainStores, ...foundationStores];

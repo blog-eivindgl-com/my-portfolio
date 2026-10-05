@@ -3,10 +3,18 @@ import database from '../database/database.config';
 import { IAccount, IStock, ITransaction } from '../database/types/types';
 import { allStores, DomainStore, domainKey, entityKey, LocalState, newEntity, newId, Operation, TransactionCommand, TransactionSnapshot, TransactionTarget, EntityState } from '../database/types/foundation';
 import { validateTransaction, TransactionValidationError } from './transactionValidation';
+import { NamedEntitySnapshot, NameStore, NameTarget, RenameCommand } from '../database/types/foundation';
 
 export class TransactionConflictError extends Error {
     constructor(message = 'This transaction changed in another tab. Reload the latest record before trying again.') { super(message); this.name = 'TransactionConflictError'; }
 }
+export class NameConflictError extends Error {
+    constructor(message = 'This record changed in another tab. Reload the latest name before trying again.') { super(message); this.name = 'NameConflictError'; }
+}
+export class NameValidationError extends Error {
+    constructor() { super('Enter a nonempty name.'); this.name = 'NameValidationError'; }
+}
+const uuid = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 const canonical = (value: unknown): string => JSON.stringify(value, (_key, item) => item && typeof item === 'object' && !Array.isArray(item)
     ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);
 
@@ -21,6 +29,58 @@ export default class PortfolioRepository {
         return this.create('stocks', { ticker: stock.ticker, name: stock.name });
     }
     async createTransaction(value: unknown): Promise<void> { return this.create('transactions', validateTransaction(value)); }
+    async getNamedEntity(store: NameStore, recordKey: string): Promise<NamedEntitySnapshot> {
+        if ((store !== 'accounts' && store !== 'stocks') || typeof recordKey !== 'string' || !recordKey.trim()) throw new Error('Invalid account or instrument identity.');
+        return this.db.transaction('r', allStores, async () => {
+            const state: LocalState | undefined = await this.db.table('localState').get('local');
+            const entity: EntityState | undefined = await this.db.table('entityStates').get(entityKey(store, recordKey));
+            const record: IAccount | IStock | undefined = await this.db.table(store).get(recordKey);
+            if (!state || !uuid(state.datasetId)) throw new Error('Missing or invalid dataset metadata.');
+            this.requireNamedRecord(store, recordKey, entity, record);
+            return { datasetId: state.datasetId, entity: entity!, record: record! };
+        });
+    }
+    async renameAccount(target: NameTarget, name: unknown): Promise<EntityState> { return this.rename('accounts', target, name); }
+    async renameInstrument(target: NameTarget, name: unknown): Promise<EntityState> { return this.rename('stocks', target, name); }
+    private requireNamedRecord(store: NameStore, recordKey: string, entity?: EntityState, record?: IAccount | IStock): void {
+        if (!entity || !record || entity.deleted) throw new NameConflictError('This account or instrument is unavailable. Return to the list or reload after recovery.');
+        const keyField = store === 'accounts' ? 'id' : 'ticker';
+        if (entity.store !== store || entity.recordKey !== recordKey || entity.key !== entityKey(store, recordKey) || entity.deleted !== false || !uuid(entity.entityId) || !uuid(entity.revision)
+            || domainKey(store, record) !== recordKey || typeof record.name !== 'string' || !record.name.trim()
+            || Object.keys(record).length !== 2 || !Object.prototype.hasOwnProperty.call(record, keyField)) {
+            throw new Error('Inconsistent account or instrument identity. Retain storage for reviewed recovery.');
+        }
+    }
+    private async rename(store: NameStore, input: NameTarget, name: unknown): Promise<EntityState> {
+        if (typeof name !== 'string' || !name.trim()) throw new NameValidationError();
+        const { commandId, datasetId, entityId, recordKey, expectedRevision } = input;
+        if (![commandId, datasetId, entityId, expectedRevision].every(uuid) || typeof recordKey !== 'string' || !recordKey.trim()) throw new Error('Invalid rename command identity.');
+        // The command accepts only a name, never a record patch or new identity/reference.
+        const command: RenameCommand = { commandId, datasetId, entityId, recordKey, expectedRevision, kind: 'rename', store, name };
+        return this.db.transaction('rw', allStores, async () => {
+            const state: LocalState | undefined = await this.db.table('localState').get('local');
+            if (!state || state.datasetId !== datasetId) throw new NameConflictError('The portfolio was restored or replaced. Reload before changing this name.');
+            const receipt: Operation | undefined = await this.db.table('outbox').get(commandId);
+            if (receipt) {
+                if (receipt.kind === 'rename' && canonical(receipt.payload.command) === canonical(command)) return receipt.payload.entity;
+                throw new Error('This command ID already belongs to another change. Reload before trying again.');
+            }
+            const entity: EntityState | undefined = await this.db.table('entityStates').get(entityKey(store, recordKey));
+            const before: IAccount | IStock | undefined = await this.db.table(store).get(recordKey);
+            this.requireNamedRecord(store, recordKey, entity, before);
+            if (entity!.entityId !== entityId || entity!.revision !== expectedRevision) throw new NameConflictError();
+            const sequence = state.nextSequence;
+            if (!Number.isSafeInteger(sequence) || sequence < 1 || sequence >= Number.MAX_SAFE_INTEGER) throw new Error('Invalid or exhausted device sequence.');
+            const after = { ...before!, name }, next = { ...entity!, revision: commandId };
+            const operation: Operation = { id: commandId, operationVersion: 3, datasetId, deviceId: state.deviceId, sequence, kind: 'rename', entityId,
+                baseRevision: expectedRevision, createdAt: new Date().toISOString(), payload: { command, before: before!, after, entity: next } };
+            await this.db.table(store).put(after);
+            await this.db.table('entityStates').put(next);
+            await this.db.table('outbox').add(operation);
+            await this.db.table('localState').put({ ...state, nextSequence: sequence + 1, headRevision: commandId });
+            return next;
+        });
+    }
     async getTransaction(id: string): Promise<TransactionSnapshot> {
         return this.db.transaction('r', allStores, async () => {
             const state: LocalState = await this.db.table('localState').get('local');

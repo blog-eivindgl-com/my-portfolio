@@ -56,6 +56,8 @@ The initial date is the browser's local calendar day. A trade date is stored in 
 
 The write service rechecks account/instrument existence atomically. Failed saves preserve input and allow retry. Successful saves require choosing **Create another transaction** before another trade can be entered. Retries reuse a save ID; a new transaction or an edit after failure gets a new ID. Two deliberate, otherwise identical trades remain separate records. The repository now saves each creation with a durable local outbox operation; no cloud transport or replay engine is implemented.
 
+Account and instrument lists now offer **Edit name**. These name-only corrections preserve IDs, tickers and trade references, reject stale revisions, and commit history atomically. See [the name-correction contract](docs/name-corrections.md). Account/instrument deletion, ticker changes and reassignment are not supported.
+
 ## Deployment target and origin
 
 The baseline target is a **Next.js Node server**, not static export:
