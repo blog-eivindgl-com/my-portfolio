@@ -14,7 +14,8 @@ const AccountsList: FC = () => {
         name: <input title="Search" type="text" value={name} onChange={(e) => setName(e.target.value)} />
         <ul>
         {account?.map(account => <li key={account.id}>
-            {account.name}
+            <span>{account.name}</span>{' '}
+            <a href={`/accounts/edit/${encodeURIComponent(account.id)}`} aria-label={`Edit name for ${account.name}`}>Edit name</a>
         </li>)}
         </ul>
     </div>
