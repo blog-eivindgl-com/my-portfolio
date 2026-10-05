@@ -52,14 +52,14 @@ async function records(page: Page): Promise<ITransaction[]> {
     }));
 }
 
-async function removeReference(page: Page, store: 'accounts' | 'stocks', key: string) {
+async function removeReference(page: Page, store: 'accounts' | 'instruments', key: string) {
     await page.evaluate(({ store, key }) => new Promise<void>((resolve, reject) => {
         const open = indexedDB.open('my-portfolio');
         open.onerror = () => reject(open.error);
         open.onsuccess = () => {
             const db = open.result;
             const tx = db.transaction(store, 'readwrite');
-            tx.objectStore(store).delete(key);
+            if (store === 'instruments') { const get = tx.objectStore(store).index('ticker').get(key); get.onsuccess = () => tx.objectStore(store).delete(get.result.id); } else tx.objectStore(store).delete(key);
             tx.oncomplete = () => { db.close(); resolve(); };
             tx.onabort = () => { db.close(); reject(tx.error); };
         };
@@ -74,7 +74,7 @@ test('defaults to the client calendar day and persists the chosen account, fract
     await expect(page.getByText('Transaction saved.')).toBeVisible();
     const saved = await records(page);
     expect(saved).toHaveLength(1);
-    expect(saved[0]).toMatchObject({ ticker: 'SYNTH', accountId: 'account-b', shares: 1.25, price: 10.5, brokerage: 0, date: Date.UTC(2024, 1, 29) });
+    expect(saved[0]).toMatchObject({ instrumentId: expect.any(String), accountId: 'account-b', shares: 1.25, price: 10.5, brokerage: 0, date: Date.UTC(2024, 1, 29) });
     await page.getByRole('link', { name: 'Back to transactions' }).click();
     await expect(page.getByText(info.project.name === 'oslo' ? '29.2.2024' : '2/29/2024', { exact: true })).toBeVisible();
     await page.reload();
@@ -163,8 +163,8 @@ test('revalidates a deleted account and lets the user select a valid one', async
 test('rejects an instrument deleted after the form opened', async ({ page }) => {
     await seed(page);
     await fill(page);
-    await removeReference(page, 'stocks', 'SYNTH');
+    await removeReference(page, 'instruments', 'SYNTH');
     await page.getByRole('button', { name: 'Save transaction' }).click();
-    await expect(page.getByRole('form', { name: 'Create transaction' }).getByRole('alert')).toContainText('This instrument no longer exists');
+    await expect(page.getByRole('form', { name: 'Create transaction' }).getByRole('alert')).toContainText('This instrument is unavailable');
     expect(await records(page)).toHaveLength(0);
 });

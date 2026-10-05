@@ -25,5 +25,5 @@ test('refuses corrupt retained history after restart without clearing synthetic 
             tx.oncomplete = () => { db.close(); resolve({ state: state.result, count: count.result, version: db.version }); };
         };
     }));
-    expect(after).toEqual({ state: evidence, count: 0, version: 30 });
+    expect(after).toEqual({ state: evidence, count: 0, version: 40 });
 });

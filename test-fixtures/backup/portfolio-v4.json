@@ -1,0 +1,192 @@
+{
+  "format": "my-portfolio-backup",
+  "formatVersion": 4,
+  "databaseVersion": 4,
+  "exportedAt": "2024-03-03T12:00:00.000Z",
+  "records": {
+    "accounts": [
+      {
+        "id": "synthetic-account-a",
+        "name": "Synthetic shares"
+      },
+      {
+        "id": "synthetic-account-b",
+        "name": "Synthetic funds"
+      }
+    ],
+    "transactions": [
+      {
+        "id": "synthetic-buy-a",
+        "type": 0,
+        "accountId": "synthetic-account-a",
+        "date": 1709164800000,
+        "tradeTime": "09:30",
+        "description": "  Preserve whitespace  ",
+        "shares": 10.125,
+        "price": 12.375,
+        "brokerage": 0.25,
+        "instrumentId": "8bf7243f-af78-4335-a79c-9f704a4f6e5a"
+      },
+      {
+        "id": "synthetic-sell-a",
+        "type": 1,
+        "accountId": "synthetic-account-a",
+        "date": 1709251200000,
+        "description": "Synthetic sale",
+        "shares": 2.5,
+        "price": 13.625,
+        "brokerage": 0.125,
+        "instrumentId": "8bf7243f-af78-4335-a79c-9f704a4f6e5a"
+      },
+      {
+        "id": "synthetic-buy-b",
+        "type": 0,
+        "accountId": "synthetic-account-b",
+        "date": 1709164800000,
+        "description": "Synthetic fund purchase",
+        "shares": 0.123456789,
+        "price": 123.456789,
+        "brokerage": 0,
+        "instrumentId": "552d59a6-6b29-411b-a88c-92089a4650e5"
+      }
+    ],
+    "stockPrices": [
+      {
+        "id": "synthetic-price-a",
+        "date": 1709380800000,
+        "price": 14.125,
+        "instrumentId": "8bf7243f-af78-4335-a79c-9f704a4f6e5a"
+      },
+      {
+        "id": "synthetic-price-b",
+        "date": 1709380800000,
+        "price": 124.56789,
+        "instrumentId": "552d59a6-6b29-411b-a88c-92089a4650e5"
+      }
+    ],
+    "instruments": [
+      {
+        "id": "8bf7243f-af78-4335-a79c-9f704a4f6e5a",
+        "ticker": "SYNTH-A",
+        "name": "Synthetic share",
+        "instrumentKind": null,
+        "currency": null,
+        "exchange": null,
+        "isin": null
+      },
+      {
+        "id": "552d59a6-6b29-411b-a88c-92089a4650e5",
+        "ticker": "SYNTH-B",
+        "name": "Synthetic fund",
+        "instrumentKind": null,
+        "currency": null,
+        "exchange": null,
+        "isin": null
+      }
+    ]
+  },
+  "identity": {
+    "datasetId": "8d8bc283-acfd-40c1-80a5-de0cb8c34929",
+    "entities": [
+      {
+        "key": "[\"accounts\",\"synthetic-account-a\"]",
+        "store": "accounts",
+        "recordKey": "synthetic-account-a",
+        "entityId": "7db18960-2ec9-44ae-b949-2b53697ea95a",
+        "revision": "e8eabcc4-28bd-4676-9267-e211878a2bb2",
+        "deleted": false,
+        "tradeOrder": null,
+        "currency": null,
+        "instrumentKind": null
+      },
+      {
+        "key": "[\"accounts\",\"synthetic-account-b\"]",
+        "store": "accounts",
+        "recordKey": "synthetic-account-b",
+        "entityId": "2ea4ac03-b358-4405-b636-38abc965ed34",
+        "revision": "e8eabcc4-28bd-4676-9267-e211878a2bb2",
+        "deleted": false,
+        "tradeOrder": null,
+        "currency": null,
+        "instrumentKind": null
+      },
+      {
+        "key": "[\"instruments\",\"8bf7243f-af78-4335-a79c-9f704a4f6e5a\"]",
+        "store": "instruments",
+        "recordKey": "8bf7243f-af78-4335-a79c-9f704a4f6e5a",
+        "entityId": "8bf7243f-af78-4335-a79c-9f704a4f6e5a",
+        "revision": "e8eabcc4-28bd-4676-9267-e211878a2bb2",
+        "deleted": false,
+        "tradeOrder": null,
+        "currency": null,
+        "instrumentKind": null
+      },
+      {
+        "key": "[\"instruments\",\"552d59a6-6b29-411b-a88c-92089a4650e5\"]",
+        "store": "instruments",
+        "recordKey": "552d59a6-6b29-411b-a88c-92089a4650e5",
+        "entityId": "552d59a6-6b29-411b-a88c-92089a4650e5",
+        "revision": "e8eabcc4-28bd-4676-9267-e211878a2bb2",
+        "deleted": false,
+        "tradeOrder": null,
+        "currency": null,
+        "instrumentKind": null
+      },
+      {
+        "key": "[\"transactions\",\"synthetic-buy-a\"]",
+        "store": "transactions",
+        "recordKey": "synthetic-buy-a",
+        "entityId": "e622d732-8d5d-4d88-b40a-8fe43f398bef",
+        "revision": "e8eabcc4-28bd-4676-9267-e211878a2bb2",
+        "deleted": false,
+        "tradeOrder": null,
+        "currency": null,
+        "instrumentKind": null
+      },
+      {
+        "key": "[\"transactions\",\"synthetic-sell-a\"]",
+        "store": "transactions",
+        "recordKey": "synthetic-sell-a",
+        "entityId": "3c3d4711-3cf0-40e6-927a-6e5a5cecffe7",
+        "revision": "e8eabcc4-28bd-4676-9267-e211878a2bb2",
+        "deleted": false,
+        "tradeOrder": null,
+        "currency": null,
+        "instrumentKind": null
+      },
+      {
+        "key": "[\"transactions\",\"synthetic-buy-b\"]",
+        "store": "transactions",
+        "recordKey": "synthetic-buy-b",
+        "entityId": "b1e6a4f0-7bc2-40e7-ab10-e559a8cd5743",
+        "revision": "e8eabcc4-28bd-4676-9267-e211878a2bb2",
+        "deleted": false,
+        "tradeOrder": null,
+        "currency": null,
+        "instrumentKind": null
+      },
+      {
+        "key": "[\"stockPrices\",\"synthetic-price-a\"]",
+        "store": "stockPrices",
+        "recordKey": "synthetic-price-a",
+        "entityId": "08d41a9a-6243-4423-8a24-e84def779466",
+        "revision": "e8eabcc4-28bd-4676-9267-e211878a2bb2",
+        "deleted": false,
+        "tradeOrder": null,
+        "currency": null,
+        "instrumentKind": null
+      },
+      {
+        "key": "[\"stockPrices\",\"synthetic-price-b\"]",
+        "store": "stockPrices",
+        "recordKey": "synthetic-price-b",
+        "entityId": "07e591a6-078b-4ffd-8b94-e87113ef7daa",
+        "revision": "e8eabcc4-28bd-4676-9267-e211878a2bb2",
+        "deleted": false,
+        "tradeOrder": null,
+        "currency": null,
+        "instrumentKind": null
+      }
+    ]
+  }
+}

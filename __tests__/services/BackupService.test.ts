@@ -7,7 +7,7 @@ import { canonicalRecords, createBackup as rawCreateBackup, makeIdentity, parseB
 import TransactionService from '@/app/services/TransactionService';
 import PriceListService from '@/app/services/PriceListService';
 import DbService from '@/app/services/DbService';
-import fixture from '../../test-fixtures/backup/portfolio-v2.json';
+import fixture from '../../test-fixtures/backup/portfolio-v4.json';
 
 const input = JSON.stringify(fixture);
 function createBackup(value: unknown) {
@@ -15,7 +15,7 @@ function createBackup(value: unknown) {
     backup.identity.entities = backup.identity.entities.map(entity => ({ ...entity, entityId: fixture.identity.entities.find(row => row.key === entity.key)?.entityId || entity.entityId }));
     return backup;
 }
-const empty = () => ({ accounts: [], stocks: [], transactions: [], stockPrices: [] });
+const empty = () => ({ accounts: [], instruments: [], transactions: [], stockPrices: [] });
 let db: Dexie;
 let service: BackupService;
 let counter = 0;
@@ -38,15 +38,15 @@ async function current() { return parseBackup(await service.exportBackup()).reco
 it('roundtrips all exact IDs, references, timestamps, descriptions and fractional values into a fresh database', async () => {
     const before = parseBackup(input).records;
     const plan = await service.preview(input, 'replace');
-    expect(plan.current).toEqual({ accounts: 0, stocks: 0, transactions: 0, stockPrices: 0 });
+    expect(plan.current).toEqual({ accounts: 0, instruments: 0, transactions: 0, stockPrices: 0 });
     await service.restore(plan, plan.recoveryText);
     db.close(); await db.open();
     expect(canonicalRecords(await current())).toBe(canonicalRecords(before));
     const calculations = (records: PortfolioRecords) => {
         const financial = new TransactionService(new PriceListService(new DbService()));
-        return records.stocks.map(stock => {
-            const prices = Object.assign({ ticker: stock.ticker }, ...records.stockPrices.filter(row => row.ticker === stock.ticker).map(row => ({ [row.date]: row.price })));
-            return financial.getTransactionListViewModel(records.transactions.filter(row => row.ticker === stock.ticker), prices);
+        return [...records.instruments].sort((a,b) => a.id.localeCompare(b.id)).map(stock => {
+            const prices = Object.assign({ instrumentId: stock.id }, ...records.stockPrices.filter(row => row.instrumentId === stock.id).map(row => ({ [row.date]: row.price })));
+            return financial.getTransactionListViewModel(records.transactions.filter(row => row.instrumentId === stock.id), prices);
         });
     };
     expect(calculations(await current())).toEqual(calculations(before));
@@ -73,7 +73,7 @@ it.each([
     ['invalid trade date', JSON.stringify({ ...fixture, records: { ...fixture.records, transactions: [{ ...fixture.records.transactions[0], date: 1 }] } })],
     ['unknown transaction fields', JSON.stringify({ ...fixture, records: { ...fixture.records, transactions: [{ ...fixture.records.transactions[0], order: 1 }] } })],
     ['numeric historical identities', JSON.stringify({ ...fixture, records: { ...fixture.records, accounts: [{ id: 1, name: 'Synthetic' }] } })],
-    ['missing quote instrument', JSON.stringify({ ...fixture, records: { ...fixture.records, stockPrices: [{ ...fixture.records.stockPrices[0], ticker: 'missing' }] } })],
+    ['missing quote instrument', JSON.stringify({ ...fixture, records: { ...fixture.records, stockPrices: [{ ...fixture.records.stockPrices[0], instrumentId: 'ffa63583-dfa6-406b-87d2-84b86b0d693a' }] } })],
     ['negative price', JSON.stringify({ ...fixture, records: { ...fixture.records, stockPrices: [{ ...fixture.records.stockPrices[0], price: -1 }] } })],
 ])('rejects %s before any destructive write', async (_name, text) => {
     await seed(); const before = await current();
@@ -97,7 +97,7 @@ it('rejects excessive file and record sizes before writing', async () => {
 it('rejects historical auto-increment identity layouts even when empty', async () => {
     await db.delete();
     const legacy = new Dexie('synthetic-backup-legacy');
-    legacy.version(1).stores({ accounts: '++id', stocks: 'ticker', transactions: '++id', stockPrices: 'id' });
+    legacy.version(1).stores({ accounts: '++id', instruments: 'instrumentId', transactions: '++id', stockPrices: 'id' });
     try { await expect(new BackupService(legacy).exportBackup()).rejects.toThrow('historical'); }
     finally { await legacy.delete(); legacy.close(); }
 });

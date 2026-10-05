@@ -11,12 +11,12 @@ import PriceListService from '@/app/services/PriceListService';
 import DbService from '@/app/services/DbService';
 
 const date = Date.UTC(2024, 2, 31);
-const trade = (id: string, tradeTime?: string) => ({ id, ticker: 'SYNTH', accountId: 'A', date, type: 0, shares: 1, price: 10, brokerage: 0, description: id, ...(tradeTime === undefined ? {} : { tradeTime }) });
+const trade = (id: string, tradeTime?: string) => ({ id, instrumentId: '188889c9-78c8-4536-854c-50e0c5e04aa4', accountId: 'A', date, type: 0, shares: 1, price: 10, brokerage: 0, description: id, ...(tradeTime === undefined ? {} : { tradeTime }) });
 
 it('leaves blank time absent while preserving explicit midnight', () => {
     const draft = { type: 0, accountId: 'A', date: '2024-03-31', shares: '1', price: '10', brokerage: '0', description: '' };
-    expect(transactionFromDraft({ ...draft, tradeTime: '' }, 'one', 'SYNTH')).not.toHaveProperty('tradeTime');
-    expect(transactionFromDraft({ ...draft, tradeTime: '00:00' }, 'two', 'SYNTH')).toMatchObject({ date, tradeTime: '00:00' });
+    expect(transactionFromDraft({ ...draft, tradeTime: '' }, 'one', '188889c9-78c8-4536-854c-50e0c5e04aa4')).not.toHaveProperty('tradeTime');
+    expect(transactionFromDraft({ ...draft, tradeTime: '00:00' }, 'two', '188889c9-78c8-4536-854c-50e0c5e04aa4')).toMatchObject({ date, tradeTime: '00:00' });
 });
 
 it.each(['24:00', '12:60', '9:30', '12:30:01', '12:30Z', ' 12:30', '', null, 930])('rejects invalid persisted time %j', tradeTime => {
@@ -52,7 +52,7 @@ it('preserves optional time through atomic persistence, operations, restart and 
     const db = createPortfolioDatabase('synthetic-trade-time');
     try {
         await db.open(); const repository = new PortfolioRepository(db);
-        await repository.createAccount({ id: 'A', name: 'Synthetic' }); await repository.createInstrument({ ticker: 'SYNTH', name: 'Synthetic' });
+        await repository.createAccount({ id: 'A', name: 'Synthetic' }); await repository.createInstrument({ id: '188889c9-78c8-4536-854c-50e0c5e04aa4', ticker: null, currency: null, instrumentKind: null, exchange: null, isin: null, name: 'Synthetic' });
         await repository.createTransaction(trade('later-created-first', '15:30'));
         await repository.createTransaction(trade('earlier-created-second', '09:00'));
         await repository.createTransaction(trade('unknown'));

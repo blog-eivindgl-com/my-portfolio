@@ -1,11 +1,11 @@
 /** @jest-environment node */
 import 'fake-indexeddb/auto';
 import Dexie from 'dexie';
-import { allStores, createPortfolioDatabase, legacySchema, readDomain } from '@/app/database/foundation';
-import PortfolioRepository from '@/app/services/PortfolioRepository';
-import BackupService from '@/app/services/BackupService';
-import { parseBackup } from '@/app/services/backupFormat';
-import { LocalState, Operation } from '@/app/database/types/foundation';
+import { allStores, createPortfolioDatabase, legacySchema, readDomain } from '@/app/legacy/database/foundation';
+import PortfolioRepository from '@/app/legacy/services/PortfolioRepository';
+import BackupService from '@/app/legacy/services/BackupService';
+import { parseBackup } from '@/app/legacy/services/backupFormat';
+import { LocalState, Operation } from '@/app/legacy/database/types/foundation';
 import fixture from '../../test-fixtures/backup/portfolio-v2.json';
 import numeric from '../../test-fixtures/database/numeric-v1.json';
 import ordered from '../../test-fixtures/database/ordered-v1.json';

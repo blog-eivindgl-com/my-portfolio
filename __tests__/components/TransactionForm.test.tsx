@@ -7,6 +7,7 @@ const mockAddTransaction = jest.fn();
 jest.mock('@/app/services/DbService', () => ({
     __esModule: true,
     default: class {
+        resolveInstrument() { return Promise.resolve({ id: 'abcdef00-0000-4000-8000-000000000001' }); }
         getAccounts() { return mockGetAccounts(); }
         addTransaction(value: unknown) { return mockAddTransaction(value); }
     },
@@ -55,7 +56,7 @@ it('blocks repeated submits synchronously while a save is pending', async () => 
     await fillValid();
     fireEvent.submit(screen.getByRole('form'));
     fireEvent.submit(screen.getByRole('form'));
-    expect(mockAddTransaction).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(mockAddTransaction).toHaveBeenCalledTimes(1));
     expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();
     await act(async () => { complete(); });
     await screen.findByText('Transaction saved.');

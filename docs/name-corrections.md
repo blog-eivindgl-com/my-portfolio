@@ -1,5 +1,8 @@
 # Revision-safe account and instrument names (issue 9)
 
+Current schema-4 behavior is documented in [Native instrument identity](native-instrument-identity.md). The older contracts below describe their original implementation stage.
+
+
 Base: main `b93b057cb5df5b67d25590899e630adfb35ec53b`, containing merged PR #29. Local branch: `feat/issue-9-safe-name-corrections`. This bounded follow-up extends the repository's atomic revision/history model to account and instrument display-name corrections. It does not adopt PR #27's undecided accounting policy or implement cloud sync.
 
 ## Scope and user workflow

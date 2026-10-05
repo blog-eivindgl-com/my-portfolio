@@ -5,10 +5,10 @@ async function setup(page: Page) {
     await page.getByRole('button', { name: 'Create', exact: true }).click();
     await expect(page.getByLabel('Name:', { exact: true })).toHaveValue('');
     await page.goto('/stock/create');
-    await page.getByLabel('Ticker:', { exact: true }).fill('CLOCK');
+    await page.getByLabel('Ticker (optional):', { exact: true }).fill('CLOCK');
     await page.getByLabel('Name:', { exact: true }).fill('Synthetic clock instrument');
     await page.getByRole('button', { name: 'Create', exact: true }).click();
-    await expect(page.getByLabel('Ticker:', { exact: true })).toHaveValue('');
+    await expect(page.getByText('Instrument saved.', { exact: false })).toBeVisible();
 }
 async function fill(page: Page, date: string, time: string, description: string) {
     await page.goto('/stock/transactions/CLOCK/create');

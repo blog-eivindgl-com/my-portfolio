@@ -9,7 +9,7 @@ import { parseBackup } from '@/app/services/backupFormat';
 import { decimalDraft, transactionFromDraft } from '@/app/services/transactionValidation';
 
 let db: Dexie, repo: PortfolioRepository, target: TransactionTarget, n = 0;
-const trade = { id: 'trade', accountId: 'account', ticker: 'SYNTH', type: 0, date: Date.UTC(2024, 0, 1), description: 'Synthetic', shares: 2, price: 10, brokerage: 1, tradeTime: '12:30' };
+const trade = { id: 'trade', accountId: 'account', instrumentId: '188889c9-78c8-4536-854c-50e0c5e04aa4', type: 0, date: Date.UTC(2024, 0, 1), description: 'Synthetic', shares: 2, price: 10, brokerage: 1, tradeTime: '12:30' };
 const freshTarget = async (repository = repo): Promise<TransactionTarget> => {
     const current = await repository.getTransaction(trade.id);
     return { commandId: crypto.randomUUID(), datasetId: current.datasetId, entityId: current.entity.entityId, expectedRevision: current.entity.revision, transactionId: trade.id };
@@ -17,7 +17,7 @@ const freshTarget = async (repository = repo): Promise<TransactionTarget> => {
 const snapshot = () => Promise.all(allStores.map(store => db.table(store).toArray()));
 beforeEach(async () => {
     jest.useRealTimers(); db = createPortfolioDatabase(`synthetic-corrections-${++n}`); await db.open(); repo = new PortfolioRepository(db);
-    await repo.createAccount({ id: 'account', name: 'Synthetic' }); await repo.createInstrument({ ticker: 'SYNTH', name: 'Synthetic' });
+    await repo.createAccount({ id: 'account', name: 'Synthetic' }); await repo.createInstrument({ id: '188889c9-78c8-4536-854c-50e0c5e04aa4', ticker: null, currency: null, instrumentKind: null, exchange: null, isin: null, name: 'Synthetic' });
     await repo.createTransaction(trade); target = await freshTarget();
 });
 afterEach(async () => { jest.restoreAllMocks(); await db.delete(); db.close(); });
@@ -28,7 +28,7 @@ it('keeps identity and complete before/after history, including date/time, acros
     db.close(); await db.open();
     expect((await repo.getTransaction(trade.id)).record).toEqual(changed);
     expect(entity).toMatchObject({ entityId: target.entityId, revision: target.commandId, deleted: false });
-    expect(await db.table('outbox').get(target.commandId)).toMatchObject({ operationVersion: 2, baseRevision: target.expectedRevision, sequence: 5, payload: { before: trade, after: changed, entity } });
+    expect(await db.table('outbox').get(target.commandId)).toMatchObject({ operationVersion: 4, baseRevision: target.expectedRevision, sequence: 5, payload: { before: trade, after: changed, entity } });
     const withoutTime = { ...changed }; delete (withoutTime as Partial<typeof trade>).tradeTime;
     await repo.updateTransaction(await freshTarget(), withoutTime);
     expect((await repo.getTransaction(trade.id)).record).not.toHaveProperty('tradeTime');
@@ -74,8 +74,8 @@ it('rejects command ID reuse with different intent or values', async () => {
     await expect(repo.deleteTransaction(target)).rejects.toThrow('command ID'); expect(await snapshot()).toEqual(before);
 });
 
-it.each(['id', 'accountId', 'ticker'] as const)('prevents %s reassignment', async field => {
-    const before = await snapshot(); await expect(repo.updateTransaction(target, { ...trade, [field]: 'different' })).rejects.toThrow('cannot be changed');
+it.each(['id', 'accountId', 'instrumentId'] as const)('prevents %s reassignment', async field => {
+    const before = await snapshot(); await expect(repo.updateTransaction(target, { ...trade, [field]: '9d6f965a-c832-440a-8df6-c06afe983e3b' })).rejects.toThrow('cannot be changed');
     expect(await snapshot()).toEqual(before);
 });
 
@@ -99,12 +99,12 @@ it('rejects invalid corrections without mutation', async () => {
 
 it('round-trips a tombstone, blocks stale live merges in both directions, and supports explicit replacement recovery', async () => {
     const service = new BackupService(db), live = await service.exportBackup(); await repo.deleteTransaction(target);
-    const deleted = await service.exportBackup(); expect(parseBackup(deleted).formatVersion).toBe(3);
+    const deleted = await service.exportBackup(); expect(parseBackup(deleted).formatVersion).toBe(4);
     expect(parseBackup(deleted).identity.entities.find(row => row.entityId === target.entityId)?.deleted).toBe(true);
     const conflict = await service.preview(live, 'merge'); expect(conflict.conflicts.join()).toContain('deletion marker');
     const before = await snapshot(); await expect(service.restore(conflict, conflict.recoveryText)).rejects.toThrow('conflicting'); expect(await snapshot()).toEqual(before);
     let preview = await service.preview(deleted, 'replace'); await service.restore(preview, preview.recoveryText);
-    expect((await db.table('outbox').toArray())[0]).toMatchObject({ kind: 'baseline', operationVersion: 2 });
+    expect((await db.table('outbox').toArray())[0]).toMatchObject({ kind: 'baseline', operationVersion: 4 });
     expect(await db.table('transactions').count()).toBe(0); expect((await db.table('entityStates').get(JSON.stringify(['transactions','trade']))).deleted).toBe(true);
     preview = await service.preview(live, 'replace'); await service.restore(preview, preview.recoveryText); expect(await db.table('transactions').count()).toBe(1);
     preview = await service.preview(deleted, 'merge'); expect(preview.conflicts.join()).toContain('deletion marker');
@@ -134,15 +134,8 @@ it('rejects invalid tombstones and format-2 deletion markers', async () => {
     }
 });
 
-it('upgrades v2 without rewriting its records, identity, device sequence or history', async () => {
-    const before = await snapshot(); await db.delete();
-    const old = new Dexie(db.name); old.version(2).stores({ ...legacySchema, localState: 'id', entityStates: 'key,&entityId,store,recordKey', outbox: 'id,&[deviceId+sequence],datasetId' });
-    await old.open(); for (let i=0;i<allStores.length;i++) await old.table(allStores[i]).bulkAdd(before[i]); old.close();
-    await db.open(); expect(db.verno).toBe(3); expect(await snapshot()).toEqual(before);
-});
-
 it.each([1e-7, 1e21, Number.MIN_VALUE, 1.2345678901234567e-20])('retains exponent-form quantity %s when editing an unrelated field', value => {
-    const result = transactionFromDraft({ type: 0, accountId: 'account', date: '2024-01-01', description: 'Corrected', shares: decimalDraft(value), price: '1', brokerage: '0' }, 'trade', 'SYNTH');
+    const result = transactionFromDraft({ type: 0, accountId: 'account', date: '2024-01-01', description: 'Corrected', shares: decimalDraft(value), price: '1', brokerage: '0' }, 'trade', '188889c9-78c8-4536-854c-50e0c5e04aa4');
     expect(result.shares).toBe(value);
 });
 
@@ -151,22 +144,4 @@ it('retains tombstones, history and device state if a restore fails after cleari
     jest.spyOn(db.table('localState'), 'put').mockRejectedValueOnce(new Error('Synthetic restore failure'));
     await expect(service.restore(plan, plan.recoveryText)).rejects.toThrow('Synthetic restore failure'); expect(await snapshot()).toEqual(before);
     await service.restore(plan, plan.recoveryText); expect(await db.table('transactions').count()).toBe(0);
-});
-
-it('refuses unknown v2 stores without removing them', async () => {
-    const before = await snapshot(); await db.delete();
-    const old = new Dexie(db.name); old.version(2).stores({ ...legacySchema, localState: 'id', entityStates: 'key,&entityId,store,recordKey', outbox: 'id,&[deviceId+sequence],datasetId', evidence: 'id' });
-    await old.open(); for (let i=0;i<allStores.length;i++) await old.table(allStores[i]).bulkAdd(before[i]);
-    await old.table('evidence').add({ id: 'retain', value: 'synthetic' }); old.close();
-    await expect(db.open()).rejects.toThrow('Unsupported historical store layout');
-    const retained = new Dexie(db.name); try { await retained.open(); expect(retained.verno).toBe(2); expect(await retained.table('evidence').get('retain')).toEqual({ id: 'retain', value: 'synthetic' }); } finally { retained.close(); }
-});
-
-it('rejects an invalid v2 identity and leaves the original version and data intact', async () => {
-    const before = await snapshot(); await db.delete();
-    const old = new Dexie(db.name); old.version(2).stores({ ...legacySchema, localState: 'id', entityStates: 'key,&entityId,store,recordKey', outbox: 'id,&[deviceId+sequence],datasetId' });
-    await old.open(); for (let i=0;i<allStores.length;i++) await old.table(allStores[i]).bulkAdd(before[i]);
-    await old.table('entityStates').update(JSON.stringify(['transactions', 'trade']), { revision: 'invalid' }); old.close();
-    await expect(db.open()).rejects.toThrow();
-    const retained = new Dexie(db.name); try { await retained.open(); expect(retained.verno).toBe(2); expect(await retained.table('transactions').get('trade')).toEqual(trade); expect((await retained.table('entityStates').get(JSON.stringify(['transactions', 'trade']))).revision).toBe('invalid'); } finally { retained.close(); }
 });

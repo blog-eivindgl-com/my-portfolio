@@ -5,14 +5,14 @@ const draft = {
     type: TransactionType.buy, accountId: 'synthetic-account', date: '2024-02-29',
     description: ' Synthetic trade ', shares: '1,25', price: '10.50', brokerage: '0',
 };
-const valid = () => transactionFromDraft(draft, 'synthetic-id', 'SYNTH');
+const valid = () => transactionFromDraft(draft, 'synthetic-id', '188889c9-78c8-4536-854c-50e0c5e04aa4');
 
 describe('transaction input validation', () => {
     it('accepts fractional units, decimal comma/point, zero fees and trims description', () => {
         expect(valid()).toMatchObject({ shares: 1.25, price: 10.5, brokerage: 0, description: 'Synthetic trade' });
     });
     it.each(['', ' ', '-1', '0', 'NaN', 'Infinity', '0x10', '1e3', '1,000.50', '1 000', '1.2.3'])('rejects invalid quantity %j', shares => {
-        expect(() => transactionFromDraft({ ...draft, shares }, 'id', 'SYNTH')).toThrow();
+        expect(() => transactionFromDraft({ ...draft, shares }, 'id', '188889c9-78c8-4536-854c-50e0c5e04aa4')).toThrow();
     });
     it.each([NaN, Infinity, -Infinity, 0, -1, '1'])('rejects bypassed quantity %j at the service boundary', shares => {
         expect(() => validateTransaction({ ...valid(), shares })).toThrow();
@@ -24,9 +24,9 @@ describe('transaction input validation', () => {
         expect(() => validateTransaction({ ...valid(), brokerage })).toThrow();
     });
     it('rejects blank fees instead of coercing them to zero', () => {
-        expect(() => transactionFromDraft({ ...draft, brokerage: '' }, 'id', 'SYNTH')).toThrow();
+        expect(() => transactionFromDraft({ ...draft, brokerage: '' }, 'id', '188889c9-78c8-4536-854c-50e0c5e04aa4')).toThrow();
     });
-    it.each([{}, { id: '' }, { accountId: '' }, { ticker: '' }, { type: 2 }, { type: '0' }, { description: null }])('rejects malformed fields %j', override => {
+    it.each([{}, { id: '' }, { accountId: '' }, { instrumentId: '' }, { type: 2 }, { type: '0' }, { description: null }])('rejects malformed fields %j', override => {
         expect(() => validateTransaction(Object.keys(override).length ? { ...valid(), ...override } : {})).toThrow();
     });
     it('rejects overflow in the transaction value', () => {

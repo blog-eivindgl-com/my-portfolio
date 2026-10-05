@@ -1,11 +1,11 @@
 /** @jest-environment node */
 import 'fake-indexeddb/auto';
 import Dexie from 'dexie';
-import { allStores, createPortfolioDatabase, legacySchema } from '@/app/database/foundation';
-import { inspectIdentityIntegrity, verifyIdentitySnapshot } from '@/app/database/identityIntegrity';
-import PortfolioRepository from '@/app/services/PortfolioRepository';
-import BackupService from '@/app/services/BackupService';
-import { parseBackup } from '@/app/services/backupFormat';
+import { allStores, createPortfolioDatabase, legacySchema } from '@/app/legacy/database/foundation';
+import { inspectIdentityIntegrity, verifyIdentitySnapshot } from '@/app/legacy/database/identityIntegrity';
+import PortfolioRepository from '@/app/legacy/services/PortfolioRepository';
+import BackupService from '@/app/legacy/services/BackupService';
+import { parseBackup } from '@/app/legacy/services/backupFormat';
 import fixture from '../../test-fixtures/backup/portfolio-v2.json';
 
 let db: Dexie, repo: PortfolioRepository;

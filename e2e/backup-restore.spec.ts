@@ -1,6 +1,6 @@
 import { expect, Page, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
-import fixture from '../test-fixtures/backup/portfolio-v2.json';
+import fixture from '../test-fixtures/backup/portfolio-v4.json';
 import oldFixture from '../test-fixtures/backup/portfolio-v1.json';
 import { canonicalRecords, createBackup, parseBackup, PortfolioRecords } from '../src/app/services/backupFormat';
 
@@ -10,7 +10,7 @@ function encode(records: PortfolioRecords) {
     backup.identity.entities = backup.identity.entities.map(entity => ({ ...entity, entityId: fixture.identity.entities.find(row => row.key === entity.key)?.entityId || entity.entityId }));
     return JSON.stringify(backup);
 }
-const tables = ['accounts', 'stocks', 'transactions', 'stockPrices'];
+const tables = ['accounts', 'instruments', 'transactions', 'stockPrices'];
 
 async function initialize(page: Page, seed = true) {
     await page.goto('/stock/transactions/SYNTH/create');
@@ -82,7 +82,7 @@ test('exports and restores exactly into a fresh browser context', async ({ page,
 test('cancellation writes nothing; replacement requires confirmation and its recovery file restores the original', async ({ page }) => {
     await initialize(page);
     const before = canonicalRecords(await records(page));
-    const replacement = encode({ accounts: [{ id: 'replacement', name: 'Synthetic replacement' }], stocks: [], transactions: [], stockPrices: [] });
+    const replacement = encode({ accounts: [{ id: 'replacement', name: 'Synthetic replacement' }], instruments: [], transactions: [], stockPrices: [] });
     await preview(page, replacement);
     await expect(page.getByRole('button', { name: 'Apply restore', exact: true })).toBeDisabled();
     expect(canonicalRecords(await records(page))).toBe(before);

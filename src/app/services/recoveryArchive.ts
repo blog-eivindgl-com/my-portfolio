@@ -1,12 +1,14 @@
 import { foundationStores } from '../database/types/foundation';
-import { BACKUP_MAX_BYTES, BACKUP_MAX_RECORDS, BackupError, storeNames } from './backupFormat';
+import { BACKUP_MAX_BYTES, BACKUP_MAX_RECORDS, BackupError } from './backupFormat';
+
+const storeNames = ['accounts', 'stocks', 'instruments', 'transactions', 'stockPrices'] as const;
 
 // A forensic copy of the known portfolio fields, NOT an import/migration format.
 // Tags retain undefined, nonfinite numbers, negative zero, dates and numeric IDs.
 const fields = {
-    accounts: ['id', 'name'], stocks: ['ticker', 'name'],
-    transactions: ['id', 'type', 'ticker', 'accountId', 'date', 'description', 'shares', 'price', 'brokerage', 'timestamp', 'order', 'tradeTime'],
-    stockPrices: ['id', 'ticker', 'date', 'price'],
+    accounts: ['id', 'name'], stocks: ['ticker', 'name'], instruments: ['id', 'name', 'ticker', 'instrumentKind', 'currency', 'exchange', 'isin'],
+    transactions: ['id', 'type', 'instrumentId', 'ticker', 'accountId', 'date', 'description', 'shares', 'price', 'brokerage', 'timestamp', 'order', 'tradeOrder', 'tradeTime'],
+    stockPrices: ['id', 'instrumentId', 'ticker', 'date', 'price'],
 };
 
 function scalar(value: unknown): { type: string; value?: string | boolean } {

@@ -4,6 +4,7 @@ import { ChangeEvent, useRef, useState } from 'react';
 import BackupService, { RestorePreview } from '../services/BackupService';
 import { BACKUP_MAX_BYTES, BackupError, RestoreMode, storeNames } from '../services/backupFormat';
 import styles from './page.module.css';
+import { HistoricalMigrationError } from '../database/HistoricalMigrationError';
 import { IdentityIntegrityError } from '../database/identityIntegrity';
 
 const service = new BackupService();
@@ -42,7 +43,7 @@ export default function BackupPage() {
         inFlight.current = true; setBusy(true); setError(''); setMessage('');
         try { await action(); }
         catch (error) {
-            setError((error instanceof BackupError || error instanceof IdentityIntegrityError) ? error.message : 'The operation failed. No partial restore was committed. Keep your backup, check browser storage or download availability, and retry.');
+            setError((error instanceof BackupError || error instanceof IdentityIntegrityError || error instanceof HistoricalMigrationError) ? error.message : 'The operation failed. No partial restore was committed. Keep your backup, check browser storage or download availability, and retry.');
         } finally { inFlight.current = false; setBusy(false); }
     }
 
@@ -87,7 +88,7 @@ export default function BackupPage() {
         </details>
 
         <h2>Restore from a backup</h2>
-        <p>Exports use version 3 and preserve transaction deletion markers. Version-2 files remain readable; version-1 files are incompatible (up to 10 MiB / 100,000 records including deletion markers). A restore that changes records or markers starts a new dataset history, preserving stable entity IDs and replacing local change history with one complete baseline. Device identity and pending operations are never imported.</p>
+        <p>Exports use version 4 and preserve transaction deletion markers. Version-1, version-2 and version-3 files are incompatible; use the previous application to recover them before upgrading (up to 10 MiB / 100,000 records including deletion markers). A restore that changes records or markers starts a new dataset history, preserving stable entity IDs and replacing local change history with one complete baseline. Device identity and pending operations are never imported.</p>
         <fieldset disabled={busy || completed} className={styles.fields}>
             <legend>File and restore mode</legend>
             <label htmlFor="backup-file">Backup JSON file</label>

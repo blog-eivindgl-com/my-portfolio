@@ -1,6 +1,11 @@
 export interface IStock {
-    ticker: string,
-    name: string
+    id: string;
+    name: string;
+    ticker: string | null;
+    instrumentKind: 'share' | 'fund' | null;
+    currency: string | null;
+    exchange: string | null;
+    isin: string | null;
 }
 
 export interface IAccount {
@@ -17,9 +22,10 @@ export interface ITransaction {
     [key: string]: any,
     id: string, 
     type: TransactionType, 
-    ticker: string, 
+    instrumentId: string,
     accountId: string, 
     date: number,
+    tradeOrder?: number, // Retained explicit historical domain order; never device sequence.
     tradeTime?: string, // Optional HH:mm wall time from the trade confirmation; no timezone conversion.
     description: string, 
     shares: number, 
@@ -29,12 +35,12 @@ export interface ITransaction {
 
 export interface IStockPrice {
     id: string,
-    ticker: string,
+    instrumentId: string,
     date: number,
     price: number
 }
 
 export interface IPriceList {
-    ticker: string,
+    instrumentId: string,
     [date: number]: number
 }

@@ -17,9 +17,9 @@ const StocksList: FC = () => {
         <h2>Stock</h2>
         name: <input title="Search" type="text" value={name} onChange={(e) => setName(e.target.value)} />
         <ul>
-        {stock?.map(stock => <li key={stock.ticker}>
-            <Link href={`/stock/transactions/${encodeURIComponent(stock.ticker)}`}>{stock.name}</Link>{' '}
-            <a href={`/stock/edit/${encodeURIComponent(stock.ticker)}`} aria-label={`Edit name for ${stock.name}`}>Edit name</a>
+        {stock?.map(stock => <li key={stock.id}>
+            <Link href={`/stock/transactions/${encodeURIComponent(stock.id)}`}>{stock.name}</Link>{' '}{stock.ticker || 'No ticker'} · {stock.instrumentKind || 'Unknown kind'} · {stock.currency || 'Unknown currency'}{' '}
+            <a href={`/stock/edit/${encodeURIComponent(stock.id)}`} aria-label={`Edit name for ${stock.name}`}>Edit name</a>
         </li>)}
         </ul>
         </Container>

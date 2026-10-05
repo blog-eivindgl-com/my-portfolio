@@ -1,4 +1,7 @@
 import Dexie from 'dexie';
+import { appendOperation } from '../database/operationIntegrity';
+import { resolveInstrument } from './instrumentLookup';
+import { validateInstrument } from './instrumentValidation';
 import database from '../database/database.config';
 import { IAccount, IStock, ITransaction } from '../database/types/types';
 import { allStores, DomainStore, domainKey, entityKey, LocalState, newEntity, newId, Operation, TransactionCommand, TransactionSnapshot, TransactionTarget, EntityState } from '../database/types/foundation';
@@ -25,13 +28,13 @@ export default class PortfolioRepository {
         return this.create('accounts', { id: account.id, name: account.name });
     }
     async createInstrument(stock: IStock): Promise<void> {
-        if (!stock || typeof stock.ticker !== 'string' || !stock.ticker.trim() || typeof stock.name !== 'string' || !stock.name.trim()) throw new Error('Enter an instrument ticker and name.');
-        return this.create('stocks', { ticker: stock.ticker, name: stock.name });
+        return this.create('instruments', validateInstrument(stock));
     }
     async createTransaction(value: unknown): Promise<void> { return this.create('transactions', validateTransaction(value)); }
     async getNamedEntity(store: NameStore, recordKey: string): Promise<NamedEntitySnapshot> {
-        if ((store !== 'accounts' && store !== 'stocks') || typeof recordKey !== 'string' || !recordKey.trim()) throw new Error('Invalid account or instrument identity.');
+        if ((store !== 'accounts' && store !== 'instruments') || typeof recordKey !== 'string' || !recordKey.trim()) throw new Error('Invalid account or instrument identity.');
         return this.db.transaction('r', allStores, async () => {
+            if (store === 'instruments') recordKey = (await resolveInstrument(recordKey, this.db)).id;
             const state: LocalState | undefined = await this.db.table('localState').get('local');
             const entity: EntityState | undefined = await this.db.table('entityStates').get(entityKey(store, recordKey));
             const record: IAccount | IStock | undefined = await this.db.table(store).get(recordKey);
@@ -41,19 +44,38 @@ export default class PortfolioRepository {
         });
     }
     async renameAccount(target: NameTarget, name: unknown): Promise<EntityState> { return this.rename('accounts', target, name); }
-    async renameInstrument(target: NameTarget, name: unknown): Promise<EntityState> { return this.rename('stocks', target, name); }
+    async renameInstrument(target: NameTarget, name: unknown): Promise<EntityState> { return this.rename('instruments', target, name); }
     private requireNamedRecord(store: NameStore, recordKey: string, entity?: EntityState, record?: IAccount | IStock): void {
         if (!entity || !record || entity.deleted) throw new NameConflictError('This account or instrument is unavailable. Return to the list or reload after recovery.');
-        const keyField = store === 'accounts' ? 'id' : 'ticker';
+        const keyField = 'id';
+        if (store === 'instruments') { try { validateInstrument(record); } catch { throw new Error('Inconsistent instrument identity. Retain storage for reviewed recovery.'); } }
         if (entity.store !== store || entity.recordKey !== recordKey || entity.key !== entityKey(store, recordKey) || entity.deleted !== false || !uuid(entity.entityId) || !uuid(entity.revision)
             || domainKey(store, record) !== recordKey || typeof record.name !== 'string' || !record.name.trim()
-            || Object.keys(record).length !== 2 || !Object.prototype.hasOwnProperty.call(record, keyField)) {
+            || Object.keys(record).length !== (store === 'accounts' ? 2 : 7) || !Object.prototype.hasOwnProperty.call(record, keyField)) {
             throw new Error('Inconsistent account or instrument identity. Retain storage for reviewed recovery.');
         }
     }
+    private async receiptCommand(receipt: any): Promise<unknown> {
+        if (receipt.operationVersion === 4) return receipt.payload.command;
+        const command = receipt.payload.command;
+        if (receipt.kind === 'rename' && command.store === 'stocks') return { ...command, store: 'instruments', recordKey: command.entityId };
+        if (receipt.kind === 'update') {
+            const boundary = (await this.db.table('outbox').toArray()).find(op => op.kind === 'migration');
+            const instrument = boundary?.payload.after.records.instruments.find((row: IStock) => row.ticker === command.record.ticker);
+            if (!instrument) throw new Error('Retained command has no unambiguous migration mapping.');
+            const { ticker: _ticker, ...record } = command.record;
+            return { ...command, record: { ...record, instrumentId: instrument.id } };
+        }
+        return command;
+    }
+    private receiptEntity(receipt: any): EntityState {
+        const entity = receipt.payload.entity;
+        return entity.store === 'stocks' ? { ...entity, store: 'instruments', recordKey: entity.entityId, key: entityKey('instruments', entity.entityId) } : entity;
+    }
     private async rename(store: NameStore, input: NameTarget, name: unknown): Promise<EntityState> {
         if (typeof name !== 'string' || !name.trim()) throw new NameValidationError();
-        const { commandId, datasetId, entityId, recordKey, expectedRevision } = input;
+        const { commandId, datasetId, entityId, expectedRevision } = input;
+        const recordKey = store === 'instruments' && !uuid(input.recordKey) ? (await resolveInstrument(input.recordKey, this.db)).id : input.recordKey;
         if (![commandId, datasetId, entityId, expectedRevision].every(uuid) || typeof recordKey !== 'string' || !recordKey.trim()) throw new Error('Invalid rename command identity.');
         // The command accepts only a name, never a record patch or new identity/reference.
         const command: RenameCommand = { commandId, datasetId, entityId, recordKey, expectedRevision, kind: 'rename', store, name };
@@ -62,7 +84,7 @@ export default class PortfolioRepository {
             if (!state || state.datasetId !== datasetId) throw new NameConflictError('The portfolio was restored or replaced. Reload before changing this name.');
             const receipt: Operation | undefined = await this.db.table('outbox').get(commandId);
             if (receipt) {
-                if (receipt.kind === 'rename' && canonical(receipt.payload.command) === canonical(command)) return receipt.payload.entity;
+                if (receipt.kind === 'rename' && canonical(await this.receiptCommand(receipt)) === canonical(command)) return this.receiptEntity(receipt);
                 throw new Error('This command ID already belongs to another change. Reload before trying again.');
             }
             const entity: EntityState | undefined = await this.db.table('entityStates').get(entityKey(store, recordKey));
@@ -72,11 +94,11 @@ export default class PortfolioRepository {
             const sequence = state.nextSequence;
             if (!Number.isSafeInteger(sequence) || sequence < 1 || sequence >= Number.MAX_SAFE_INTEGER) throw new Error('Invalid or exhausted device sequence.');
             const after = { ...before!, name }, next = { ...entity!, revision: commandId };
-            const operation: Operation = { id: commandId, operationVersion: 3, datasetId, deviceId: state.deviceId, sequence, kind: 'rename', entityId,
+            const operation: Operation = { id: commandId, operationVersion: 4, datasetId, deviceId: state.deviceId, sequence, kind: 'rename', entityId,
                 baseRevision: expectedRevision, createdAt: new Date().toISOString(), payload: { command, before: before!, after, entity: next } };
             await this.db.table(store).put(after);
             await this.db.table('entityStates').put(next);
-            await this.db.table('outbox').add(operation);
+            await appendOperation(this.db, operation);
             await this.db.table('localState').put({ ...state, nextSequence: sequence + 1, headRevision: commandId });
             return next;
         });
@@ -113,7 +135,7 @@ export default class PortfolioRepository {
             // Receipts are checked before current revision: a retry must stay harmless even after a later edit/delete.
             const receipt: Operation | undefined = await this.db.table('outbox').get(commandId);
             if (receipt) {
-                if ((receipt.kind === 'update' || receipt.kind === 'delete') && canonical(receipt.payload.command) === canonical(command)) return receipt.payload.entity;
+                if ((receipt.kind === 'update' || receipt.kind === 'delete') && canonical(await this.receiptCommand(receipt)) === canonical(command)) return this.receiptEntity(receipt);
                 throw new Error('This command ID already belongs to another change. Reload before trying again.');
             }
             const key = entityKey('transactions', transactionId);
@@ -121,17 +143,17 @@ export default class PortfolioRepository {
             const before: ITransaction | undefined = await this.db.table('transactions').get(transactionId);
             if (!entity || entity.entityId !== entityId || entity.revision !== expectedRevision || entity.deleted || !before) throw new TransactionConflictError();
             const after = command.kind === 'update' ? command.record : null;
-            if (after && (after.id !== before.id || after.accountId !== before.accountId || after.ticker !== before.ticker)) throw new Error('Transaction identity, account and instrument cannot be changed.');
-            if (!await this.db.table('accounts').get(before.accountId) || !await this.db.table('stocks').get(before.ticker)) throw new Error('Missing account or instrument. No changes were saved.');
+            if (after && (after.id !== before.id || after.accountId !== before.accountId || after.instrumentId !== before.instrumentId || after.tradeOrder !== before.tradeOrder)) throw new Error('Transaction identity, account and instrument cannot be changed.');
+            if (!await this.db.table('accounts').get(before.accountId) || !await this.db.table('instruments').get(before.instrumentId)) throw new Error('Missing account or instrument. No changes were saved.');
             const sequence = state.nextSequence;
             if (!Number.isSafeInteger(sequence) || sequence < 1 || sequence >= Number.MAX_SAFE_INTEGER) throw new Error('Invalid or exhausted device sequence.');
             const next = { ...entity, revision: commandId, deleted: command.kind === 'delete' };
-            const operation: Operation = { id: commandId, operationVersion: 2, datasetId, deviceId: state.deviceId, sequence,
+            const operation: Operation = { id: commandId, operationVersion: 4, datasetId, deviceId: state.deviceId, sequence,
                 kind: command.kind, entityId, baseRevision: expectedRevision, createdAt: new Date().toISOString(), payload: { command, before, after, entity: next } };
             if (after) await this.db.table('transactions').put(after);
             else await this.db.table('transactions').delete(transactionId);
             await this.db.table('entityStates').put(next);
-            await this.db.table('outbox').add(operation);
+            await appendOperation(this.db, operation);
             await this.db.table('localState').put({ ...state, nextSequence: sequence + 1, headRevision: commandId });
             return next;
         });
@@ -144,9 +166,9 @@ export default class PortfolioRepository {
             if (store === 'transactions') {
                 const trade = row as ITransaction;
                 if (!await this.db.table('accounts').get(trade.accountId)) throw new TransactionValidationError({ accountId: 'This account no longer exists. Select an available account.' });
-                if (!await this.db.table('stocks').get(trade.ticker)) throw new TransactionValidationError({ ticker: 'This instrument no longer exists. Return to the instrument list.' });
+                if (!await this.db.table('instruments').get(trade.instrumentId)) throw new TransactionValidationError({ instrumentId: 'This instrument no longer exists. Return to the instrument list.' });
                 const account = await this.db.table('entityStates').get(entityKey('accounts', trade.accountId));
-                const instrument = await this.db.table('entityStates').get(entityKey('stocks', trade.ticker));
+                const instrument = await this.db.table('entityStates').get(entityKey('instruments', trade.instrumentId));
                 if (!account || !instrument) throw new Error('Missing reference identity metadata. Retain records for reviewed recovery.');
                 references.accountId = account.entityId;
                 references.instrumentId = instrument.entityId;
@@ -161,12 +183,13 @@ export default class PortfolioRepository {
             if (await this.db.table('entityStates').get(entityKey(store, key))) throw new Error('Identity already reserved; review this record.');
             const id = newId(), sequence = state.nextSequence;
             if (!Number.isSafeInteger(sequence) || sequence < 1 || sequence >= Number.MAX_SAFE_INTEGER) throw new Error('Invalid or exhausted device sequence.');
-            const entity = newEntity(store, key, id);
-            const operation: Operation = { id, operationVersion: 1, datasetId: state.datasetId, deviceId: state.deviceId, sequence,
+            const entity = newEntity(store, key, id, store === 'instruments' ? key : undefined);
+            if ((await this.db.table('entityStates').toArray()).some((existing: EntityState) => existing.entityId.toLowerCase() === entity.entityId.toLowerCase())) throw new Error('Stable UUID already reserved; no changes were saved.');
+            const operation: Operation = { id, operationVersion: 4, datasetId: state.datasetId, deviceId: state.deviceId, sequence,
                 kind: 'create', entityId: entity.entityId, baseRevision: null, createdAt: new Date().toISOString(), payload: { store, record: row, entity, references } };
             await this.db.table(store).add(row);
             await this.db.table('entityStates').add(entity);
-            await this.db.table('outbox').add(operation);
+            await appendOperation(this.db, operation);
             await this.db.table('localState').put({ ...state, nextSequence: sequence + 1, headRevision: id });
         });
     }

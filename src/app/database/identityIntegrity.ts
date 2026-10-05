@@ -1,3 +1,7 @@
+import { convertHistorical } from './historicalMigration';
+import { verifyIdentitySnapshot as verifyLegacy } from '../legacy/database/identityIntegrity';
+import { convertLegacySnapshot } from './instrumentMigration';
+import { verifyOperationDigests } from './operationIntegrity';
 import type { Table } from 'dexie';
 import { DomainRecord, DomainStore, domainStores, domainKey, EntityState, entityKey, LocalState, Operation } from './types/foundation';
 import { canonicalRecords, PortfolioRecords, validateIdentity, validateRecords } from '../services/backupFormat';
@@ -43,7 +47,7 @@ function checkedEntities(value: unknown, records: PortfolioRecords, datasetId: s
 
 // Pure verification of this app's retained LOCAL journal. No remote replay or writes.
 // A portable restore starts a new baseline, so evidence before that boundary is not inferred.
-export function verifyIdentitySnapshot(input: IntegritySnapshot): IdentityIntegrityReport {
+function verifyNativeSnapshot(input: IntegritySnapshot): IdentityIntegrityReport {
     requireThat(Array.isArray(input.localState) && input.localState.length === 1, 'exactly one local state is required');
     const state = object(input.localState[0], ['id', 'datasetId', 'deviceId', 'nextSequence', 'headRevision'], 'local state') as LocalState;
     requireThat(state.id === 'local' && uuid(state.datasetId) && uuid(state.deviceId) && uuid(state.headRevision)
@@ -58,7 +62,7 @@ export function verifyIdentitySnapshot(input: IntegritySnapshot): IdentityIntegr
         requireThat(typeof row.createdAt === 'string' && Number.isFinite(Date.parse(row.createdAt)) && new Date(row.createdAt).toISOString() === row.createdAt, 'invalid operation timestamp');
         return row as Operation;
     }).sort((a, b) => a.sequence - b.sequence);
-    requireThat(operations[0].kind === 'baseline', 'history must start with a complete baseline');
+    requireThat((operations[0].kind === 'baseline' || operations[0].kind === 'migration'), 'history must start with a complete baseline');
     const rows = new Map<DomainStore, Map<string, DomainRecord>>(domainStores.map(store => [store, new Map()]));
     const entities = new Map<string, EntityState>(), reservedIds = new Set<string>();
     const records = (): PortfolioRecords => Object.fromEntries(domainStores.map(store => [store, Array.from(rows.get(store)!.values())])) as unknown as PortfolioRecords;
@@ -66,20 +70,22 @@ export function verifyIdentitySnapshot(input: IntegritySnapshot): IdentityIntegr
     function checkedRecord(store: DomainStore, value: unknown): DomainRecord {
         const candidate = value as ITransaction;
         const accounts = store === 'transactions' ? [rows.get('accounts')!.get(candidate?.accountId)].filter(Boolean) : [];
-        const stocks = store === 'transactions' ? [rows.get('stocks')!.get(candidate?.ticker)].filter(Boolean) : [];
-        const subset = checkedRecords({ accounts, stocks, transactions: [], stockPrices: [], [store]: [value] });
+        const instruments = store === 'transactions' ? [rows.get('instruments')!.get(candidate?.instrumentId)].filter(Boolean) : [];
+        const subset = checkedRecords({ accounts, instruments, transactions: [], stockPrices: [], [store]: [value] });
         return subset[store][0];
     }
     for (let index = 0; index < operations.length; index++) {
         const operation = operations[index];
         if (index) requireThat(operation.sequence === operations[index - 1].sequence + 1, 'operation sequence has a gap or duplicate');
-        if (operation.kind === 'baseline') {
-            requireThat(index === 0 && operation.entityId === null && operation.baseRevision === null && [1, 2].includes(operation.operationVersion), 'unsupported or misplaced baseline');
-            const payload = object(operation.payload, ['records', 'entities'], 'baseline payload');
+        if (operation.kind === 'baseline' || operation.kind === 'migration') {
+            requireThat(index === 0 && operation.entityId === null && (operation.kind === 'migration' || operation.baseRevision === null) && operation.operationVersion === 4, 'unsupported or misplaced baseline');
+            const raw = operation.kind === 'migration' ? operation.payload.after : operation.payload;
+            const hasSource = Object.prototype.hasOwnProperty.call(raw, 'sourceMigration');
+            const payload = object(raw, ['records', 'entities', ...(hasSource ? ['sourceMigration'] : [])], 'baseline payload');
+            if (hasSource) equal(payload.records, convertHistorical(payload.sourceMigration), 'historical source conversion');
             const baseline = checkedRecords(payload.records), identities = checkedEntities(payload.entities, baseline, state.datasetId);
-            requireThat(operation.operationVersion !== 1 || identities.every(entity => !entity.deleted), 'version-1 baseline cannot contain deletion markers');
             for (const entity of identities) {
-                requireThat(entity.revision === operation.id, 'baseline entity revision mismatch');
+                requireThat(operation.kind === 'migration' || entity.revision === operation.id, 'baseline entity revision mismatch');
                 entities.set(entity.key, entity); reservedIds.add(entity.entityId.toLowerCase());
             }
             for (const store of domainStores) for (const row of baseline[store]) install(store, row);
@@ -87,9 +93,9 @@ export function verifyIdentitySnapshot(input: IntegritySnapshot): IdentityIntegr
         }
         requireThat(uuid(operation.entityId), 'invalid operation entity UUID');
         if (operation.kind === 'create') {
-            requireThat(operation.operationVersion === 1 && operation.baseRevision === null, 'unsupported create operation version/revision');
+            requireThat(operation.operationVersion === 4 && operation.baseRevision === null, 'unsupported create operation version/revision');
             const payload = object(operation.payload, ['store', 'record', 'entity', 'references'], 'create payload');
-            requireThat(['accounts', 'stocks', 'transactions'].includes(payload.store), 'unsupported create store');
+            requireThat(['accounts', 'instruments', 'transactions'].includes(payload.store), 'unsupported create store');
             const store = payload.store as DomainStore, row = checkedRecord(store, payload.record), key = domainKey(store, row);
             requireThat(!entities.has(entityKey(store, key)) && !reservedIds.has(operation.entityId.toLowerCase()), 'create reuses a reserved record or UUID identity');
             const expected: EntityState = { key: entityKey(store, key), store, recordKey: key, entityId: operation.entityId, revision: operation.id, deleted: false, tradeOrder: null, currency: null, instrumentKind: null };
@@ -97,7 +103,7 @@ export function verifyIdentitySnapshot(input: IntegritySnapshot): IdentityIntegr
             const trade = row as ITransaction;
             equal(payload.references, store === 'transactions' ? {
                 accountId: entities.get(entityKey('accounts', trade.accountId))?.entityId,
-                instrumentId: entities.get(entityKey('stocks', trade.ticker))?.entityId,
+                instrumentId: entities.get(entityKey('instruments', trade.instrumentId))?.entityId,
             } : {}, 'canonical account/instrument references');
             install(store, row); entities.set(expected.key, expected); reservedIds.add(operation.entityId.toLowerCase());
             continue;
@@ -105,13 +111,13 @@ export function verifyIdentitySnapshot(input: IntegritySnapshot): IdentityIntegr
         requireThat(operation.kind === 'update' || operation.kind === 'delete' || operation.kind === 'rename', 'unknown operation kind/version');
         const payload = object(operation.payload, ['command', 'before', 'after', 'entity'], 'change payload');
         const isRename = operation.kind === 'rename';
-        requireThat(operation.operationVersion === (isRename ? 3 : 2), 'unsupported change operation version');
+        requireThat(operation.operationVersion === 4, 'unsupported change operation version');
         const command = object(payload.command, ['commandId', 'datasetId', 'entityId', 'expectedRevision', 'kind',
             ...(isRename ? ['recordKey', 'store', 'name'] : ['transactionId']), ...(operation.kind === 'update' ? ['record'] : [])], 'change command');
         requireThat(command.commandId === operation.id && command.datasetId === state.datasetId && command.entityId === operation.entityId
             && command.expectedRevision === operation.baseRevision && command.kind === operation.kind, 'command and operation disagree');
         const store: DomainStore = isRename ? command.store : 'transactions', key = isRename ? command.recordKey : command.transactionId;
-        requireThat((!isRename || store === 'accounts' || store === 'stocks') && typeof key === 'string', 'invalid change target');
+        requireThat((!isRename || store === 'accounts' || store === 'instruments') && typeof key === 'string', 'invalid change target');
         const entity = entities.get(entityKey(store, key)), before = rows.get(store)!.get(key);
         requireThat(entity && before && !entity.deleted && entity.entityId === operation.entityId && entity.revision === operation.baseRevision, 'stale or missing change base identity/revision');
         equal(payload.before, before, 'before record');
@@ -127,7 +133,7 @@ export function verifyIdentitySnapshot(input: IntegritySnapshot): IdentityIntegr
             } else {
                 equal(payload.after, command.record, 'updated command record');
                 const oldTrade = before as ITransaction, newTrade = after as ITransaction;
-                requireThat(newTrade.id === oldTrade.id && newTrade.accountId === oldTrade.accountId && newTrade.ticker === oldTrade.ticker, 'transaction identity/reference reassignment');
+                requireThat(newTrade.id === oldTrade.id && newTrade.accountId === oldTrade.accountId && newTrade.instrumentId === oldTrade.instrumentId && newTrade.tradeOrder === oldTrade.tradeOrder, 'transaction identity/reference reassignment');
             }
             install(store, after);
         }
@@ -139,17 +145,38 @@ export function verifyIdentitySnapshot(input: IntegritySnapshot): IdentityIntegr
     const sortedEntities = (items: EntityState[]) => [...items].sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
     equal(sortedEntities(Array.from(entities.values())), sortedEntities(currentEntities), 'current identity/revision/deletion state');
     const transactionCounts = new Map<string, number>(), priceCounts = new Map<string, number>();
-    for (const trade of current.transactions) transactionCounts.set(trade.ticker, (transactionCounts.get(trade.ticker) || 0) + 1);
-    for (const price of current.stockPrices) priceCounts.set(price.ticker, (priceCounts.get(price.ticker) || 0) + 1);
+    for (const trade of current.transactions) transactionCounts.set(trade.instrumentId, (transactionCounts.get(trade.instrumentId) || 0) + 1);
+    for (const price of current.stockPrices) priceCounts.set(price.instrumentId, (priceCounts.get(price.instrumentId) || 0) + 1);
     return { checkVersion: 1, datasetId: state.datasetId, headRevision: state.headRevision, operationCount: operations.length,
         liveRecords: domainStores.reduce((count, store) => count + current[store].length, 0), tombstones: currentEntities.filter(entity => entity.deleted).length,
-        instruments: current.stocks.map(stock => ({ legacyTicker: stock.ticker, instrumentId: entities.get(entityKey('stocks', stock.ticker))!.entityId,
-            transactions: (transactionCounts.get(stock.ticker) || 0), prices: (priceCounts.get(stock.ticker) || 0) })) };
+        instruments: current.instruments.map(stock => ({ legacyTicker: stock.id, instrumentId: entities.get(entityKey('instruments', stock.id))!.entityId,
+            transactions: (transactionCounts.get(stock.id) || 0), prices: (priceCounts.get(stock.id) || 0) })) };
 }
 
 // Caller supplies a single transaction spanning all seven stores; no split snapshots.
 export async function inspectIdentityIntegrity(db: { table(name: string): Table }): Promise<IdentityIntegrityReport> {
-    const [accounts, stocks, transactions, stockPrices, localState, entities, operations] = await Promise.all(
-        ['accounts', 'stocks', 'transactions', 'stockPrices', 'localState', 'entityStates', 'outbox'].map(store => db.table(store).toArray()));
-    return verifyIdentitySnapshot({ records: { accounts, stocks, transactions, stockPrices }, localState, entities, operations });
+    const [accounts, instruments, transactions, stockPrices, localState, entities, operations] = await Promise.all(
+        ['accounts', 'instruments', 'transactions', 'stockPrices', 'localState', 'entityStates', 'outbox'].map(store => db.table(store).toArray()));
+    const report = verifyIdentitySnapshot({ records: { accounts, instruments, transactions, stockPrices }, localState, entities, operations });
+    try { await verifyOperationDigests(db, operations); } catch { throw new IdentityIntegrityError('operation hash/chain evidence disagrees with history'); }
+    return report;
+}
+
+// Verify the immutable legacy prefix before following its explicit migration boundary.
+export function verifyIdentitySnapshot(input: IntegritySnapshot): IdentityIntegrityReport {
+    requireThat(Array.isArray(input.operations) && input.operations.length <= 250_000, 'unsupported retained journal');
+    const ops = [...input.operations].sort((a, b) => a.sequence - b.sequence);
+    requireThat(new Set(ops.map(op => typeof op.id === 'string' ? op.id.toLowerCase() : op.id)).size === ops.length, 'duplicate operation UUID');
+    const index = ops.findIndex(op => op.kind === 'migration');
+    if (index < 0) return verifyNativeSnapshot(input);
+    requireThat(index > 0 && Array.isArray(input.localState) && input.localState.length === 1, 'migration requires retained source history');
+    const migration = ops[index], previous = ops[index - 1], state = input.localState[0];
+    const payload = object(migration.payload, ['fromSchema', 'toSchema', 'before', 'after'], 'migration payload');
+    object(payload.before, ['records', 'entities'], 'migration source');
+    requireThat(payload.fromSchema === 3 && payload.toSchema === 4 && migration.baseRevision === previous.id && migration.sequence === previous.sequence + 1, 'invalid migration boundary');
+    try { verifyLegacy({ records: payload.before.records, entities: payload.before.entities, operations: ops.slice(0, index), localState: [{ ...state, headRevision: previous.id, nextSequence: migration.sequence }] }); }
+    catch { throw new IdentityIntegrityError('legacy prefix disagrees with migration evidence'); }
+    equal(payload.after, convertLegacySnapshot(payload.before.records, payload.before.entities, state.datasetId), 'migrated records/identities');
+    requireThat(!ops.slice(index + 1).some(op => op.kind === 'migration'), 'duplicate migration boundary');
+    return verifyNativeSnapshot({ ...input, operations: ops.slice(index) });
 }

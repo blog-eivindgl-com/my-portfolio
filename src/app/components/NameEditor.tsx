@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { NamedEntitySnapshot, NameStore } from '../database/types/foundation';
+import { InstrumentLookupError } from '../services/InstrumentLookupError';
 import PortfolioRepository, { NameConflictError, NameValidationError } from '../services/PortfolioRepository';
 import styles from '../stock/transactions/[ticker]/create/TransactionForm.module.css';
 
@@ -22,7 +23,7 @@ export default function NameEditor({ store, recordKey }: { store: NameStore; rec
         repository.getNamedEntity(store, recordKey).then(value => {
             if (!cancelled) { setSnapshot(value); setName(value.record.name); }
         }).catch(error => {
-            if (!cancelled) setError(error instanceof NameConflictError ? error.message : 'Could not load this record. Keep browser storage and retry loading.');
+            if (!cancelled) setError(error instanceof NameConflictError || error instanceof InstrumentLookupError ? error.message : 'Could not load this record. Keep browser storage and retry loading.');
         }).finally(() => { if (!cancelled) setLoading(false); });
         return () => { cancelled = true; };
     }, [store, recordKey, attempt]);
@@ -33,7 +34,7 @@ export default function NameEditor({ store, recordKey }: { store: NameStore; rec
         inFlight.current = true; setStatus('saving'); setError(''); setInvalidName(false);
         try {
             commandId.current ??= crypto.randomUUID();
-            const target = { commandId: commandId.current, datasetId: snapshot.datasetId, entityId: snapshot.entity.entityId, recordKey, expectedRevision: snapshot.entity.revision };
+            const target = { commandId: commandId.current, datasetId: snapshot.datasetId, entityId: snapshot.entity.entityId, recordKey: snapshot.entity.recordKey, expectedRevision: snapshot.entity.revision };
             if (store === 'accounts') await repository.renameAccount(target, name);
             else await repository.renameInstrument(target, name);
             completed.current = true; setStatus('saved');
@@ -45,7 +46,7 @@ export default function NameEditor({ store, recordKey }: { store: NameStore; rec
     }
     return <main className={styles.root}>
         <h1>Edit {label} name</h1>
-        <p>{store === 'accounts' ? 'Account ID' : 'Ticker'}: <strong>{recordKey}</strong>. Renaming keeps this identity and its transaction references unchanged.</p>
+        <p>{store === 'accounts' ? 'Account ID' : 'Instrument reference'}: <strong>{recordKey}</strong>. Renaming keeps this identity and its transaction references unchanged.</p>
         {loading && <p role="status">Loading {label}.</p>}
         {!loading && !snapshot && <><p role="alert">{error}</p><button onClick={() => setAttempt(value => value + 1)}>Retry loading</button></>}
         {snapshot && <form aria-label={`Edit ${label} name`} onSubmit={save} noValidate>

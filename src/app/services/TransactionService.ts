@@ -92,7 +92,7 @@ export default class TransactionService {
 
             if (priceList === undefined) {
                 priceList = {
-                    ticker: vm.transaction.ticker
+                    instrumentId: vm.transaction.instrumentId
                 };
             }
             const currentPrice: number = this._priceListService.getPriceClosestToDate(lastPriceDate, priceList);
@@ -152,7 +152,7 @@ export default class TransactionService {
         // Current price
         if (priceList === undefined) {
             priceList = {
-                ticker: lastTransaction?.transaction.ticker || ""
+                instrumentId: lastTransaction?.transaction.instrumentId || ""
             };
         }
         const currentPrice = this._priceListService.getPriceAndDateClosestToDate(Date.now(), priceList);
