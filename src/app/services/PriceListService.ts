@@ -4,9 +4,9 @@ import DbService from "./DbService";
 export default class PriceListService {
     constructor(private _dbService: DbService) { }
 
-    async getPriceListForStock(ticker: string): Promise<IPriceList> {
+    async getPriceListForStock(instrumentId: string): Promise<IPriceList> {
         // Lookup price list from DB
-        const priceList = await this.getPriceListFromDb(ticker);
+        const priceList = await this.getPriceListFromDb(instrumentId);
 
         // Fill in price list by transactions for missing dates
         await this.fillInPriceListFromStockTransactions(priceList);
@@ -14,11 +14,11 @@ export default class PriceListService {
         return priceList;
     }
 
-    async getPriceListFromDb(ticker: string): Promise<IPriceList> {
+    async getPriceListFromDb(instrumentId: string): Promise<IPriceList> {
         const priceList: IPriceList = {
-            ticker: ticker
+            instrumentId: instrumentId
         };
-        const stockPrices = await this._dbService.getPricesForTicker(ticker);
+        const stockPrices = await this._dbService.getPricesForTicker(instrumentId);
         stockPrices?.forEach((sp) => {
             priceList[sp.date] = sp.price;
         });
@@ -27,8 +27,8 @@ export default class PriceListService {
     }
 
     async fillInPriceListFromStockTransactions(priceList: IPriceList) {
-        const ticker = priceList.ticker;
-        const transactions = await this._dbService.getTransactionsForTicker(ticker);
+        const instrumentId = priceList.instrumentId;
+        const transactions = await this._dbService.getTransactionsForTicker(instrumentId);
         transactions?.forEach((t) => {
             if (priceList[t.date] === undefined) {
                 priceList[t.date] = t.price;
@@ -37,7 +37,7 @@ export default class PriceListService {
     }
 
     getPriceListDateClosestToDate(date: number, priceList: IPriceList): number | undefined {
-        const allDates = Object.keys(priceList).filter((key) => key !== "ticker").map(Number);
+        const allDates = Object.keys(priceList).filter((key) => key !== "instrumentId").map(Number);
         
         if (allDates.length === 0) {
             return undefined;
@@ -69,7 +69,7 @@ export default class PriceListService {
 
         return {
             id: "",
-            ticker: priceList.ticker,
+            instrumentId: priceList.instrumentId,
             date: closestDate,
             price: priceList[closestDate]
         };

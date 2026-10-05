@@ -21,3 +21,5 @@ it is not adopted as the development baseline.
 No migration implementation or real-browser migration test is claimed by #15.
 Do not load these into a real portfolio. Add interrupted-upgrade, malformed-data
 and multi-account variants with the migration/restore implementation.
+
+Issue #9 now tests these fixtures in the native migration adapters and browser suite. Exact numeric, UUID and ordered layouts are supported; see [accepted/refused contracts](../../docs/native-instrument-identity.md). Corrupt or unknown variants are retained without reset.

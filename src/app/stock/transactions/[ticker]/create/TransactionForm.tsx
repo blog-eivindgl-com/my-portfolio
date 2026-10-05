@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { IAccount, TransactionType } from '@/app/database/types/types';
+import { InstrumentLookupError } from '@/app/services/InstrumentLookupError';
 import DbService from '@/app/services/DbService';
 import {
     localDateInput, TransactionDraft, TransactionErrors, TransactionField,
@@ -61,11 +62,11 @@ export default function TransactionForm({ ticker }: { ticker: string }) {
         setStatus('saving');
         try {
             attemptId.current ??= crypto.randomUUID();
-            const transaction = transactionFromDraft(draft, attemptId.current, ticker);
+            const transaction = transactionFromDraft(draft, attemptId.current, (await dbService.resolveInstrument(ticker)).id);
             await dbService.addTransaction(transaction);
             setStatus('saved');
         } catch (error) {
-            setErrors(error instanceof TransactionValidationError ? error.errors : {
+            setErrors(error instanceof TransactionValidationError ? error.errors : error instanceof InstrumentLookupError ? { form: error.message } : {
                 form: 'Could not save the transaction. Your entries are unchanged. Check browser storage availability and retry.',
             });
             setStatus('error');
@@ -152,7 +153,7 @@ export default function TransactionForm({ ticker }: { ticker: string }) {
             </fieldset>
             <div ref={feedback} tabIndex={-1} className={styles.feedback}>
                 {status === 'error' && <p role="alert" className={styles.error}>
-                    {errors.form || errors.ticker || errors.id || 'Check the highlighted transaction fields.'}
+                    {errors.form || errors.instrumentId || errors.id || 'Check the highlighted transaction fields.'}
                 </p>}
                 {status === 'saved' && <p role="status">Transaction saved.</p>}
             </div>

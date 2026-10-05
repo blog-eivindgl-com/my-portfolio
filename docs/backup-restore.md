@@ -1,5 +1,8 @@
 # Local backup and restore
 
+Current schema-4 behavior is documented in [Native instrument identity](native-instrument-identity.md). The older contracts below describe their original implementation stage.
+
+
 Open **Backup** from the desktop navigation or **Backup and restore your portfolio** from the home page. This page works with browser IndexedDB and downloaded files. No OneDrive/Google login or network upload is involved. JSON backups are plaintext financial data: keep the files private and retain an independent copy. Clearing browser storage is not a recovery procedure.
 
 ## Normal backup

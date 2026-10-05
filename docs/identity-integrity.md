@@ -1,5 +1,8 @@
 # Identity/history integrity prerequisite (issue 9)
 
+Current schema-4 behavior is documented in [Native instrument identity](native-instrument-identity.md). The older contracts below describe their original implementation stage.
+
+
 Base: main `50b7c1aebc15f00e704cc6c3fc3378d8a4d2f80d` (merged PR #30). Branch: `feat/issue-9-verified-identity-history`. This local slice establishes a checked identity mapping before a future native UUID-key migration. It does not migrate instrument keys or add product metadata.
 
 ## Enforced boundary

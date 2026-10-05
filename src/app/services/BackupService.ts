@@ -38,10 +38,10 @@ export default class BackupService {
     exportRecoveryArchive(): Promise<string> { return exportRecoveryArchive(this.db.name); }
     private async ready() {
         await this.db.open();
-        if (this.db.verno !== 3 || this.db.tables.length !== allStores.length) throw new BackupError('Unsupported historical/local database layout. Restore requires version 3; no reset was attempted.');
+        if (this.db.verno !== 4 || this.db.tables.length !== allStores.length) throw new BackupError('Unsupported historical/local database layout. Restore requires version 4; no reset was attempted.');
         for (const store of storeNames) {
             const key = this.db.table(store).schema.primKey;
-            if (key.auto || key.keyPath !== (store === 'stocks' ? 'ticker' : 'id')) throw new BackupError('Unsupported historical identity layout.');
+            if (key.auto || key.keyPath !== 'id') throw new BackupError('Unsupported historical identity layout.');
         }
     }
     private async snapshot(): Promise<PortfolioBackup> {

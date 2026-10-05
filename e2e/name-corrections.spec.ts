@@ -1,9 +1,9 @@
 import { expect, Page, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
-import fixture from '../test-fixtures/backup/portfolio-v2.json';
+import fixture from '../test-fixtures/backup/portfolio-v4.json';
 
 const source = JSON.stringify(fixture);
-const stores = ['accounts', 'stocks', 'transactions', 'stockPrices', 'localState', 'entityStates', 'outbox'];
+const stores = ['accounts', 'instruments', 'transactions', 'stockPrices', 'localState', 'entityStates', 'outbox', 'operationDigests'];
 async function snapshot(page: Page) {
     return page.evaluate(stores => new Promise<Record<string, any[]>>((resolve, reject) => {
         const open = indexedDB.open('my-portfolio'); open.onerror = () => reject(open.error);
@@ -29,7 +29,7 @@ async function restore(page: Page, text = source) {
 }
 const cases = [
     { store: 'accounts', key: fixture.records.accounts[0].id, original: fixture.records.accounts[0].name, route: `/accounts/edit/${fixture.records.accounts[0].id}`, list: '/accounts', label: 'Account name' },
-    { store: 'stocks', key: fixture.records.stocks[0].ticker, original: fixture.records.stocks[0].name, route: `/stock/edit/${fixture.records.stocks[0].ticker}`, list: '/stock', label: 'Instrument name' },
+    { store: 'instruments', key: fixture.records.instruments[0].id, original: fixture.records.instruments[0].name, route: `/stock/edit/${fixture.records.instruments[0].id}`, list: '/stock', label: 'Instrument name' },
 ];
 async function save(page: Page) { await page.getByRole('button', { name: 'Save name', exact: true }).click(); await expect(page.getByText('Name updated.', { exact: true })).toBeVisible(); }
 for (const item of cases) {
@@ -45,7 +45,7 @@ for (const item of cases) {
         const after = await snapshot(page); expect(after.outbox.length).toBe(before.outbox.length + 1); expect(after.transactions).toEqual(before.transactions); expect(after.stockPrices).toEqual(before.stockPrices);
         const entity = (data: Record<string, any[]>) => data.entityStates.find(row => row.store === item.store && row.recordKey === item.key);
         expect(entity(after).entityId).toBe(entity(before).entityId);
-        expect(after.outbox.find(row => row.kind === 'rename')).toMatchObject({ operationVersion: 3, baseRevision: entity(before).revision, payload: { command: { store: item.store, recordKey: item.key, name: '  Renamed Å & Fund  ' } } });
+        expect(after.outbox.find(row => row.kind === 'rename')).toMatchObject({ operationVersion: 4, baseRevision: entity(before).revision, payload: { command: { store: item.store, recordKey: item.key, name: '  Renamed Å & Fund  ' } } });
         await page.reload(); await expect(page.getByLabel(item.label, { exact: true })).toHaveValue('  Renamed Å & Fund  ');
         await page.getByRole('link', { name: /^Back to/ }).click(); await expect(page.getByRole('link', { name: /Edit name for.*Renamed/ })).toBeVisible();
     });
@@ -88,7 +88,7 @@ for (const item of cases) {
 test('renamed accounts and instruments round-trip into a fresh context without changing trades or identities', async ({ page, browser }, info) => {
     await restore(page); const initial = await snapshot(page);
     for (const item of cases) { await page.goto(item.route); await page.getByLabel(item.label, { exact: true }).fill(`Renamed ${item.store}`); await save(page); }
-    await page.goto('/backup'); const exported = await download(page, 'Export backup'); expect(JSON.parse(exported).formatVersion).toBe(3);
+    await page.goto('/backup'); const exported = await download(page, 'Export backup'); expect(JSON.parse(exported).formatVersion).toBe(4);
     const fresh = await browser.newContext({ baseURL: 'http://127.0.0.1:3100', timezoneId: info.project.use.timezoneId, locale: info.project.use.locale });
     try {
         const restored = await fresh.newPage(); await restore(restored, exported); const before = await snapshot(restored);

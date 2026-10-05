@@ -1,6 +1,6 @@
 import { ITransaction, TransactionType } from '../database/types/types';
 
-export type TransactionField = keyof TransactionDraft | 'id' | 'ticker' | 'form';
+export type TransactionField = keyof TransactionDraft | 'id' | 'instrumentId' | 'tradeOrder' | 'form';
 export type TransactionErrors = Partial<Record<TransactionField, string>>;
 
 export interface TransactionDraft {
@@ -63,9 +63,9 @@ function parseDecimal(value: string): number {
     return result === 0 && /[1-9]/.test(text) ? NaN : result;
 }
 
-export function transactionFromDraft(draft: TransactionDraft, id: string, ticker: string): ITransaction {
+export function transactionFromDraft(draft: TransactionDraft, id: string, instrumentId: string): ITransaction {
     return validateTransaction({
-        id, ticker, type: draft.type, accountId: draft.accountId,
+        id, instrumentId, type: draft.type, accountId: draft.accountId,
         ...(draft.tradeTime ? { tradeTime: draft.tradeTime } : {}),
         date: parseTradeDate(draft.date), description: draft.description,
         shares: parseDecimal(draft.shares), price: parseDecimal(draft.price),
@@ -80,7 +80,7 @@ export function validateTransaction(value: unknown): ITransaction {
     }
     const input = value as Record<string, unknown>;
     const errors: TransactionErrors = {};
-    for (const field of ['id', 'ticker', 'accountId'] as const) {
+    for (const field of ['id', 'instrumentId', 'accountId'] as const) {
         if (typeof input[field] !== 'string' || !(input[field] as string).trim()) {
             errors[field] = field === 'accountId' ? 'Select an account.' : `A valid ${field} is required.`;
         }
@@ -105,13 +105,15 @@ export function validateTransaction(value: unknown): ITransaction {
     if (Object.prototype.hasOwnProperty.call(input, 'tradeTime') && (typeof input.tradeTime !== 'string' || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(input.tradeTime))) {
         errors.tradeTime = 'Enter a valid time (HH:mm), or leave it blank when unknown.';
     }
+    if (Object.prototype.hasOwnProperty.call(input, 'tradeOrder') && (!Number.isSafeInteger(input.tradeOrder) || (input.tradeOrder as number) < 0)) errors.tradeOrder = 'Retained trade order must be a nonnegative safe integer.';
     if (typeof input.description !== 'string') errors.description = 'Description must be text.';
     if (Object.keys(errors).length) throw new TransactionValidationError(errors);
     const transaction: ITransaction = {
-        id: input.id as string, ticker: input.ticker as string, accountId: input.accountId as string,
+        id: input.id as string, instrumentId: input.instrumentId as string, accountId: input.accountId as string,
         type: input.type as TransactionType, date: input.date as number,
         description: (input.description as string).trim(), shares: input.shares as number,
         price: input.price as number, brokerage: input.brokerage as number,
+        ...(typeof input.tradeOrder === 'number' ? { tradeOrder: input.tradeOrder } : {}),
         ...(typeof input.tradeTime === 'string' ? { tradeTime: input.tradeTime } : {}),
     };
     if (!Number.isFinite(transaction.shares * transaction.price + transaction.brokerage)) {

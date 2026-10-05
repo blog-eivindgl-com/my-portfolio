@@ -14,6 +14,7 @@ const TransactionsList: FC<Props> = ({vm}: Props) => {
     const columns = [
         { key: 'actions', label: 'Actions' },
         { key: 'tradeTime', label: 'Trade time' },
+        { key: 'tradeOrder', label: 'Retained trade order' },
         {
             key: 'date',
             label: 'Date'
@@ -72,7 +73,7 @@ const TransactionsList: FC<Props> = ({vm}: Props) => {
         const cellValue = vm[columnKey];
         switch (columnKey) {
             case 'actions':
-                return <a href={`/stock/transactions/${encodeURIComponent(vm.transaction.ticker)}/edit/${encodeURIComponent(vm.transaction.id)}`}>Edit / delete</a>;
+                return <a href={`/stock/transactions/${encodeURIComponent(vm.transaction.instrumentId)}/edit/${encodeURIComponent(vm.transaction.id)}`}>Edit / delete</a>;
             case "price":
             case "averagePrice":
             case "brokerage":

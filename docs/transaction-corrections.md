@@ -1,5 +1,8 @@
 # Transaction corrections and deletions (issue 9, local slice)
 
+Current schema-4 behavior is documented in [Native instrument identity](native-instrument-identity.md). The older contracts below describe their original implementation stage.
+
+
 Base: main `de572249de826620158a17d1e6a226578ea14c9c`. The local branch `feat/issue-9-transaction-corrections` implements transaction-only corrections/deletions. PR #27 remains parked; no calculation or fee policy is adopted. There is no cloud transport, replay, account/instrument reassignment, or account/instrument deletion.
 
 ## User workflow

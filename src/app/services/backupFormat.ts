@@ -1,21 +1,22 @@
 import { IdentitySnapshot, EntityState, domainKey, entityKey, newEntity, newId } from '../database/types/foundation';
 import { IAccount, IStock, IStockPrice, ITransaction } from '../database/types/types';
+import { validateInstrument } from './instrumentValidation';
 import { validateTransaction } from './transactionValidation';
 
 export const BACKUP_MAX_BYTES = 10 * 1024 * 1024;
 export const BACKUP_MAX_RECORDS = 100_000;
-export const storeNames = ['accounts', 'stocks', 'transactions', 'stockPrices'] as const;
+export const storeNames = ['accounts', 'instruments', 'transactions', 'stockPrices'] as const;
 export type StoreName = typeof storeNames[number];
 export interface PortfolioRecords {
     accounts: IAccount[];
-    stocks: IStock[];
+    instruments: IStock[];
     transactions: ITransaction[];
     stockPrices: IStockPrice[];
 }
 export interface PortfolioBackup {
     format: 'my-portfolio-backup';
-    formatVersion: 3;
-    databaseVersion: 3;
+    formatVersion: 4;
+    databaseVersion: 4;
     exportedAt: string;
     records: PortfolioRecords;
     identity: IdentitySnapshot;
@@ -46,7 +47,7 @@ function number(value: unknown, path: string): number {
 }
 
 export function recordKey(store: StoreName, row: IAccount | IStock | IStockPrice | ITransaction): string {
-    return store === 'stocks' ? (row as IStock).ticker : (row as IAccount).id;
+    return row.id;
 }
 
 export function validateRecords(value: unknown): PortfolioRecords {
@@ -62,34 +63,35 @@ export function validateRecords(value: unknown): PortfolioRecords {
         const row = object(value, ['id', 'name'], path);
         return { id: text(row.id, `${path}.id`), name: text(row.name, `${path}.name`) };
     });
-    const stocks = (source.stocks as unknown[]).map((value, index) => {
-        const path = `stocks[${index}]`;
-        const row = object(value, ['ticker', 'name'], path);
-        return { ticker: text(row.ticker, `${path}.ticker`), name: text(row.name, `${path}.name`) };
+    const instruments = (source.instruments as unknown[]).map((value, index) => {
+        const path = `instruments[${index}]`;
+        try { return validateInstrument(value); } catch { throw new BackupError(`${path}: invalid instrument fields.`); }
     });
     const transactions = (source.transactions as unknown[]).map((value, index) => {
         const path = `transactions[${index}]`;
+        const hasOrder = !!value && typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, 'tradeOrder');
         const hasTime = !!value && typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, 'tradeTime');
-        const row = object(value, ['id', 'type', 'ticker', 'accountId', 'date', 'description', 'shares', 'price', 'brokerage', ...(hasTime ? ['tradeTime'] : [])], path);
+        const row = object(value, ['id', 'type', 'instrumentId', 'accountId', 'date', 'description', 'shares', 'price', 'brokerage', ...(hasTime ? ['tradeTime'] : []), ...(hasOrder ? ['tradeOrder'] : [])], path);
         try { validateTransaction(row); } catch { throw new BackupError(`${path}: invalid transaction fields or trade date.`); }
         for (const field of ['type', 'date', 'shares', 'price', 'brokerage']) number(row[field], `${path}.${field}`);
         // Validate without normalizing: preserve descriptions and all numeric values exactly.
         return {
-            id: row.id as string, type: row.type as number, ticker: row.ticker as string,
+            id: row.id as string, type: row.type as number, instrumentId: row.instrumentId as string,
             accountId: row.accountId as string, date: row.date as number, description: row.description as string,
             shares: row.shares as number, price: row.price as number, brokerage: row.brokerage as number,
+            ...(hasOrder ? { tradeOrder: row.tradeOrder as number } : {}),
             ...(hasTime ? { tradeTime: row.tradeTime as string } : {}),
         };
     });
     const stockPrices = (source.stockPrices as unknown[]).map((value, index) => {
         const path = `stockPrices[${index}]`;
-        const row = object(value, ['id', 'ticker', 'date', 'price'], path);
+        const row = object(value, ['id', 'instrumentId', 'date', 'price'], path);
         const date = number(row.date, `${path}.date`);
         const price = number(row.price, `${path}.price`);
         if (!Number.isFinite(new Date(date).getTime()) || price <= 0) throw new BackupError(`${path}: invalid date or nonpositive price.`);
-        return { id: text(row.id, `${path}.id`), ticker: text(row.ticker, `${path}.ticker`), date, price };
+        return { id: text(row.id, `${path}.id`), instrumentId: text(row.instrumentId, `${path}.instrumentId`), date, price };
     });
-    const records = { accounts, stocks, transactions, stockPrices };
+    const records = { accounts, instruments, transactions, stockPrices };
     for (const store of storeNames) {
         const ids = new Set<string>();
         records[store].forEach((row, index) => {
@@ -99,12 +101,12 @@ export function validateRecords(value: unknown): PortfolioRecords {
         });
     }
     const accountIds = new Set(accounts.map(row => row.id));
-    const tickers = new Set(stocks.map(row => row.ticker));
+    const tickers = new Set(instruments.map(row => row.id));
     transactions.forEach((row, index) => {
-        if (!accountIds.has(row.accountId) || !tickers.has(row.ticker)) throw new BackupError(`transactions[${index}]: missing account or instrument reference.`);
+        if (!accountIds.has(row.accountId) || !tickers.has(row.instrumentId)) throw new BackupError(`transactions[${index}]: missing account or instrument reference.`);
     });
     stockPrices.forEach((row, index) => {
-        if (!tickers.has(row.ticker)) throw new BackupError(`stockPrices[${index}]: missing instrument reference.`);
+        if (!tickers.has(row.instrumentId)) throw new BackupError(`stockPrices[${index}]: missing instrument reference.`);
     });
     return records;
 }
@@ -114,15 +116,13 @@ export function validateBackup(value: unknown): PortfolioBackup {
         throw new BackupError('This is a recovery-only archive, not a directly importable backup. Keep it for reviewed recovery/migration; no records were changed.');
     }
     const source = object(value, ['format', 'formatVersion', 'databaseVersion', 'exportedAt', 'records', 'identity'], 'backup');
-    const legacy = source.formatVersion === 2 && source.databaseVersion === 2;
-    if (source.format !== 'my-portfolio-backup' || (!legacy && (source.formatVersion !== 3 || source.databaseVersion !== 3))) {
+    if (source.format !== 'my-portfolio-backup' || (source.formatVersion !== 4 || source.databaseVersion !== 4)) {
         throw new BackupError('Unsupported backup format or database version. Use a compatible app; no migration was attempted.');
     }
     if (typeof source.exportedAt !== 'string' || !Number.isFinite(Date.parse(source.exportedAt))
         || new Date(source.exportedAt).toISOString() !== source.exportedAt) throw new BackupError('backup.exportedAt: expected an ISO timestamp.');
     const records = validateRecords(source.records), identity = validateIdentity(source.identity, records);
-    if (legacy && identity.entities.some(entity => entity.deleted)) throw new BackupError('Format 2 cannot contain deletion markers.');
-    return { format: 'my-portfolio-backup', formatVersion: 3, databaseVersion: 3, exportedAt: source.exportedAt, records, identity };
+    return { format: 'my-portfolio-backup', formatVersion: 4, databaseVersion: 4, exportedAt: source.exportedAt, records, identity };
 }
 
 export function parseBackup(content: string): PortfolioBackup {
@@ -133,7 +133,7 @@ export function parseBackup(content: string): PortfolioBackup {
 }
 
 export function createBackup(records: unknown, identity?: IdentitySnapshot): PortfolioBackup {
-    return { format: 'my-portfolio-backup', formatVersion: 3, databaseVersion: 3, exportedAt: new Date().toISOString(), records: validateRecords(records), identity: validateIdentity(identity || makeIdentity(validateRecords(records)), validateRecords(records)) };
+    return { format: 'my-portfolio-backup', formatVersion: 4, databaseVersion: 4, exportedAt: new Date().toISOString(), records: validateRecords(records), identity: validateIdentity(identity || makeIdentity(validateRecords(records)), validateRecords(records)) };
 }
 
 export function serializeBackup(backup: PortfolioBackup): string {
@@ -179,7 +179,7 @@ export function combineRecords(current: PortfolioRecords, incoming: PortfolioRec
 const uuid = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 export function makeIdentity(records: PortfolioRecords): IdentitySnapshot {
     const revision = newId();
-    return { datasetId: newId(), entities: storeNames.flatMap(store => records[store].map(row => newEntity(store, domainKey(store, row), revision))) };
+    return { datasetId: newId(), entities: storeNames.flatMap(store => records[store].map(row => newEntity(store, domainKey(store, row), revision, store === 'instruments' ? row.id : undefined))) };
 }
 export function validateIdentity(value: unknown, records: PortfolioRecords): IdentitySnapshot {
     const source = object(value, ['datasetId', 'entities'], 'identity');
@@ -190,7 +190,7 @@ export function validateIdentity(value: unknown, records: PortfolioRecords): Ide
     const entities = source.entities.map((value, index) => {
         const row = object(value, ['key', 'store', 'recordKey', 'entityId', 'revision', 'deleted', 'tradeOrder', 'currency', 'instrumentKind'], `identity.entities[${index}]`);
         if (!storeNames.includes(row.store as StoreName) || typeof row.recordKey !== 'string' || !row.recordKey.trim() || row.key !== entityKey(row.store as StoreName, row.recordKey)
-            || keys.has(row.key as string) || !uuid(row.entityId) || ids.has(row.entityId.toLowerCase()) || !uuid(row.revision)
+            || (row.store === 'instruments' && row.entityId !== row.recordKey) || keys.has(row.key as string) || !uuid(row.entityId) || ids.has(row.entityId.toLowerCase()) || !uuid(row.revision)
             || typeof row.deleted !== 'boolean' || row.tradeOrder !== null || row.currency !== null || row.instrumentKind !== null
             || (row.deleted ? row.store !== 'transactions' || expected.has(row.key as string) : !expected.delete(row.key as string))) throw new BackupError('Invalid, duplicate or unsupported entity identity metadata.');
         ids.add(row.entityId.toLowerCase()); keys.add(row.key as string);

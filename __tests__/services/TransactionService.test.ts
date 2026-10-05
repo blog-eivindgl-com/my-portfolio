@@ -12,7 +12,7 @@ const testTransactionsForTickerSalme: ITransaction[] = [
         "type": 0,
         "description": "Kjøp i Salmon Evolution",
         "accountId": "5d6d80c7-cc32-43ea-bb46-2af800f026f3",
-        "ticker": "SALME",
+        "instrumentId": "41ef0f74-522f-4891-89da-9d7e999ccb0e",
         "shares": 12,
         "price": 7,
         "brokerage": 79
@@ -23,7 +23,7 @@ const testTransactionsForTickerSalme: ITransaction[] = [
         "type": 1,
         "description": "Salg av Salmon Evolution",
         "accountId": "5d6d80c7-cc32-43ea-bb46-2af800f026f3",
-        "ticker": "SALME",
+        "instrumentId": "41ef0f74-522f-4891-89da-9d7e999ccb0e",
         "shares": 40,
         "price": 14,
         "brokerage": 79
@@ -34,7 +34,7 @@ const testTransactionsForTickerSalme: ITransaction[] = [
         "type": 0,
         "description": "Kjøp i Salmon Evolution",
         "accountId": "5d6d80c7-cc32-43ea-bb46-2af800f026f3",
-        "ticker": "SALME",
+        "instrumentId": "41ef0f74-522f-4891-89da-9d7e999ccb0e",
         "shares": 50,
         "price": 8,
         "brokerage": 79
@@ -45,7 +45,7 @@ const testTransactionsForTickerSalme: ITransaction[] = [
         "type": 1,
         "description": "Salg av Salmon Evolution",
         "accountId": "5d6d80c7-cc32-43ea-bb46-2af800f026f3",
-        "ticker": "SALME",
+        "instrumentId": "41ef0f74-522f-4891-89da-9d7e999ccb0e",
         "shares": 22,
         "price": 15,
         "brokerage": 79
@@ -61,7 +61,7 @@ describe("TransactionService.getTransactionListViewModel", () => {
 
     // Create a price list that consists only of prices from the transaction list
     const priceList: IPriceList = {
-        ticker: "SALME"
+        instrumentId: "41ef0f74-522f-4891-89da-9d7e999ccb0e"
     };
     testTransactionsForTickerSalme.forEach(t => priceList[t.date] = t.price);
     const result = service.getTransactionListViewModel(testTransactionsForTickerSalme, priceList);

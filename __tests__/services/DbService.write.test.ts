@@ -7,7 +7,7 @@ import { TransactionType } from '@/app/database/types/types';
 
 const service = new DbService();
 const trade = (id = 'synthetic-trade') => ({
-    id, ticker: 'SYNTH', accountId: 'account-b', type: TransactionType.buy,
+    id, instrumentId: '188889c9-78c8-4536-854c-50e0c5e04aa4', accountId: 'account-b', type: TransactionType.buy,
     date: Date.UTC(2024, 1, 29), description: 'Synthetic only', shares: 1.25, price: 10.5, brokerage: 0,
 });
 
@@ -16,7 +16,7 @@ beforeEach(async () => {
     await database.delete();
     await database.open();
     await accountsTable.bulkAdd([{ id: 'account-a', name: 'Synthetic A' }, { id: 'account-b', name: 'Synthetic B' }]);
-    await stockTable.add({ ticker: 'SYNTH', name: 'Synthetic instrument' });
+    await stockTable.add({ id: '188889c9-78c8-4536-854c-50e0c5e04aa4', ticker: null, currency: null, instrumentKind: null, exchange: null, isin: null, name: 'Synthetic instrument' });
     await database.transaction('rw', allStores, async () => baseline(database, await readDomain(database)));
 });
 afterAll(async () => { await database.delete(); database.close(); });
@@ -28,14 +28,14 @@ it('persists the selected account and fractional/date values, including after re
     expect(await transactionsTable.get('synthetic-trade')).toEqual(trade());
 });
 
-it.each(['missing', 'deleted'])('rejects a %s account without writing anything', async condition => {
+it.each(['ffa63583-dfa6-406b-87d2-84b86b0d693a', 'deleted'])('rejects a %s account without writing anything', async condition => {
     if (condition === 'deleted') await accountsTable.delete('account-b');
-    await expect(service.addTransaction({ ...trade(), accountId: condition === 'missing' ? 'unknown' : 'account-b' })).rejects.toThrow();
+    await expect(service.addTransaction({ ...trade(), accountId: condition === 'ffa63583-dfa6-406b-87d2-84b86b0d693a' ? 'unknown' : 'account-b' })).rejects.toThrow();
     expect(await transactionsTable.count()).toBe(0);
 });
 
 it('rejects an instrument that no longer exists', async () => {
-    await stockTable.delete('SYNTH');
+    await stockTable.delete('188889c9-78c8-4536-854c-50e0c5e04aa4');
     await expect(service.addTransaction(trade())).rejects.toThrow();
     expect(await transactionsTable.count()).toBe(0);
 });

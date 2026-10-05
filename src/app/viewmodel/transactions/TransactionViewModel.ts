@@ -19,6 +19,8 @@ export default class TransactionViewModel {
         return formatTradeDate(this.transaction.date);
     }
 
+    get tradeOrder(): number | string { return this.transaction.tradeOrder ?? 'Unknown'; }
+
     get tradeTime(): string { return this.transaction.tradeTime ?? 'Unknown'; }
 
     get description(): string {

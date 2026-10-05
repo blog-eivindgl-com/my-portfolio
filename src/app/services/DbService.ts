@@ -1,9 +1,11 @@
 import { IAccount, IStockPrice, ITransaction } from "../database/types/types";
 import { accountsTable, stockPricesTable, transactionsTable } from "../database/database.config";
+import { resolveInstrument } from './instrumentLookup';
 import PortfolioRepository from './PortfolioRepository';
 
 export default class DbService {
     constructor() {}
+    resolveInstrument(reference: string) { return resolveInstrument(reference); }
 
     async getAccounts(): Promise<IAccount[]> {
         return accountsTable.orderBy('name').toArray();
@@ -13,15 +15,17 @@ export default class DbService {
         return new PortfolioRepository().createTransaction(value);
     }
 
-    async getPricesForTicker(ticker: string): Promise<IStockPrice[]> {
+    async getPricesForTicker(instrumentId: string): Promise<IStockPrice[]> {
+        instrumentId = (await resolveInstrument(instrumentId)).id;
         return await stockPricesTable
-        .where("ticker").equals(ticker)
+        .where("instrumentId").equals(instrumentId)
         .toArray();
     }
 
-    async getTransactionsForTicker(ticker: string): Promise<ITransaction[]> {
+    async getTransactionsForTicker(instrumentId: string): Promise<ITransaction[]> {
+        instrumentId = (await resolveInstrument(instrumentId)).id;
         return await transactionsTable
-        .where("ticker").equals(ticker)
+        .where("instrumentId").equals(instrumentId)
         .toArray();
     }
 }

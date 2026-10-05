@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { TransactionSnapshot } from '@/app/database/types/foundation';
+import { resolveInstrument } from '@/app/services/instrumentLookup';
 import PortfolioRepository, { TransactionConflictError } from '@/app/services/PortfolioRepository';
 import { decimalDraft, TransactionDraft, TransactionErrors, transactionFromDraft, TransactionValidationError } from '@/app/services/transactionValidation';
 import styles from '../../create/TransactionForm.module.css';
@@ -25,8 +26,8 @@ export default function TransactionEditor({ ticker, id }: { ticker: string; id: 
         let cancelled = false;
         setLoading(true); setLoadError(''); setSnapshot(undefined); setDraft(undefined);
         setStatus('idle'); setErrors({}); setConfirmDelete(false); attempt.current = undefined; completed.current = false;
-        repository.getTransaction(id).then(value => {
-            if (value.record.ticker !== ticker) throw new Error('Wrong instrument');
+        repository.getTransaction(id).then(async value => {
+            if (value.record.instrumentId !== (await resolveInstrument(ticker)).id) throw new Error('Wrong instrument');
             if (cancelled) return;
             setSnapshot(value);
             const row = value.record;
@@ -51,7 +52,7 @@ export default function TransactionEditor({ ticker, id }: { ticker: string; id: 
             if (attempt.current?.kind !== kind) attempt.current = { kind, id: crypto.randomUUID() };
             const target = { commandId: attempt.current.id, datasetId: snapshot.datasetId, entityId: snapshot.entity.entityId,
                 transactionId: id, expectedRevision: snapshot.entity.revision };
-            if (kind === 'update') await repository.updateTransaction(target, { ...transactionFromDraft(draft, id, ticker), description: draft.description });
+            if (kind === 'update') await repository.updateTransaction(target, { ...transactionFromDraft(draft, id, snapshot.record.instrumentId), description: draft.description, ...(snapshot.record.tradeOrder !== undefined ? { tradeOrder: snapshot.record.tradeOrder } : {}) });
             else await repository.deleteTransaction(target);
             completed.current = true; setStatus(kind === 'update' ? 'saved' : 'deleted'); setConfirmDelete(false);
         } catch (error) {

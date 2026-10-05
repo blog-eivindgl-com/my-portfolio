@@ -1,10 +1,10 @@
 import { expect, Page, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
-import fixture from '../test-fixtures/backup/portfolio-v2.json';
+import fixture from '../test-fixtures/backup/portfolio-v4.json';
 
 const trade = fixture.records.transactions[0];
-const route = `/stock/transactions/${trade.ticker}/edit/${trade.id}`;
-const stores = ['accounts', 'stocks', 'transactions', 'stockPrices', 'localState', 'entityStates', 'outbox'];
+const route = `/stock/transactions/${trade.instrumentId}/edit/${trade.id}`;
+const stores = ['accounts', 'instruments', 'transactions', 'stockPrices', 'localState', 'entityStates', 'outbox', 'operationDigests'];
 async function snapshot(page: Page) {
     return page.evaluate(stores => new Promise<Record<string, any[]>>((resolve, reject) => {
         const open = indexedDB.open('my-portfolio'); open.onerror = () => reject(open.error);
@@ -96,9 +96,9 @@ test('correcting same-day times preserves unknown and equal-time warnings until 
     const sale = fixture.records.transactions.find(row => row.type === 1)!;
     await page.getByLabel('Trade date', { exact: true }).fill(new Date(sale.date).toISOString().slice(0, 10)); await save(page);
     await page.getByRole('link', { name: 'Back to transactions' }).click(); await expect(page.getByText(/Calculations are unavailable because same-day trade order is unknown/)).toBeVisible();
-    await page.goto(`/stock/transactions/${sale.ticker}/edit/${sale.id}`); await page.getByLabel('Trade time (optional)', { exact: true }).fill(trade.tradeTime!); await save(page);
+    await page.goto(`/stock/transactions/${sale.instrumentId}/edit/${sale.id}`); await page.getByLabel('Trade time (optional)', { exact: true }).fill(trade.tradeTime!); await save(page);
     await page.getByRole('link', { name: 'Back to transactions' }).click(); await expect(page.getByText(/Calculations are unavailable because same-day trade order is unknown/)).toBeVisible();
-    await page.goto(`/stock/transactions/${sale.ticker}/edit/${sale.id}`); await page.getByLabel('Trade time (optional)', { exact: true }).fill('10:30'); await save(page);
+    await page.goto(`/stock/transactions/${sale.instrumentId}/edit/${sale.id}`); await page.getByLabel('Trade time (optional)', { exact: true }).fill('10:30'); await save(page);
     await page.getByRole('link', { name: 'Back to transactions' }).click(); await expect(page.getByRole('grid', { name: 'Transactions', exact: true })).toBeVisible();
     await expect(page.getByText(/Calculations are unavailable because same-day trade order is unknown/)).toHaveCount(0);
 });
@@ -133,11 +133,11 @@ test('edit and deletion failures roll back all stores, retain input and retry on
 
 test('deleted transaction survives fresh-context restore and stale merge cannot resurrect it', async ({ page, browser }, info) => {
     await setup(page); await deleteTrade(page); await page.goto('/backup'); const backup = await download(page, 'Export backup');
-    expect(JSON.parse(backup).formatVersion).toBe(3);
+    expect(JSON.parse(backup).formatVersion).toBe(4);
     const fresh = await browser.newContext({ baseURL: 'http://127.0.0.1:3100', timezoneId: info.project.use.timezoneId, locale: info.project.use.locale });
     try {
         const restored = await fresh.newPage(); await restore(restored, backup); const before = await snapshot(restored);
-        expect(before.outbox[0]).toMatchObject({ kind: 'baseline', operationVersion: 2 });
+        expect(before.outbox[0]).toMatchObject({ kind: 'baseline', operationVersion: 4 });
         expect(before.transactions.some(row => row.id === trade.id)).toBe(false); expect(before.entityStates.find(row => row.recordKey === trade.id).deleted).toBe(true);
         await preview(restored, JSON.stringify(fixture), 'merge');
         await expect(restored.getByText(/conflicts with a deletion marker/)).toBeVisible(); await expect(restored.getByRole('button', { name: 'Apply restore', exact: true })).toBeDisabled(); expect(await snapshot(restored)).toEqual(before);

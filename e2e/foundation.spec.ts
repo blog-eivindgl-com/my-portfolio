@@ -1,6 +1,6 @@
 import { expect, Page, test } from '@playwright/test';
 
-const stores = ['accounts', 'stocks', 'transactions', 'stockPrices', 'localState', 'entityStates', 'outbox'];
+const stores = ['accounts', 'stocks', 'transactions', 'stockPrices', 'localState', 'entityStates', 'outbox', 'instruments', 'operationDigests'];
 async function snapshot(page: Page) {
     return page.evaluate(stores => new Promise<Record<string, any[]>>((resolve, reject) => {
         const open = indexedDB.open('my-portfolio');
@@ -79,8 +79,8 @@ test('supported v1 records upgrade without reset into one baseline and stable me
     await page.goto('/accounts');
     await expect(page.getByText('Synthetic legacy', { exact: true })).toBeVisible();
     const data = await snapshot(page);
-    expect(data.version).toEqual([30]); expect(data.accounts).toEqual([{ id: 'legacy', name: 'Synthetic legacy' }]);
-    expect(data.outbox).toHaveLength(1); expect(data.outbox[0].kind).toBe('baseline'); expect(data.entityStates).toHaveLength(1);
+    expect(data.version).toEqual([40]); expect(data.accounts).toEqual([{ id: 'legacy', name: 'Synthetic legacy' }]);
+    expect(data.outbox).toHaveLength(2); expect(data.outbox.map(row => row.kind).sort()).toEqual(['baseline', 'migration']); expect(data.entityStates).toHaveLength(1);
     await page.reload(); expect(await snapshot(page)).toEqual(data);
 });
 
@@ -109,5 +109,5 @@ test('interrupted browser migration rolls back and upgrades on a clean retry', a
     expect((await snapshot(page)).version).toEqual([10]);
     await page.goto('/accounts');
     await expect(page.getByText('Synthetic legacy', { exact: true })).toBeVisible();
-    const data = await snapshot(page); expect(data.version).toEqual([30]); expect(data.outbox).toHaveLength(1);
+    const data = await snapshot(page); expect(data.version).toEqual([40]); expect(data.outbox).toHaveLength(2);
 });
