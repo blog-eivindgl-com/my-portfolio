@@ -4,6 +4,7 @@ import { ChangeEvent, useRef, useState } from 'react';
 import BackupService, { RestorePreview } from '../services/BackupService';
 import { BACKUP_MAX_BYTES, BackupError, RestoreMode, storeNames } from '../services/backupFormat';
 import styles from './page.module.css';
+import { IdentityIntegrityError } from '../database/identityIntegrity';
 
 const service = new BackupService();
 
@@ -41,7 +42,7 @@ export default function BackupPage() {
         inFlight.current = true; setBusy(true); setError(''); setMessage('');
         try { await action(); }
         catch (error) {
-            setError(error instanceof BackupError ? error.message : 'The operation failed. No partial restore was committed. Keep your backup, check browser storage or download availability, and retry.');
+            setError((error instanceof BackupError || error instanceof IdentityIntegrityError) ? error.message : 'The operation failed. No partial restore was committed. Keep your backup, check browser storage or download availability, and retry.');
         } finally { inFlight.current = false; setBusy(false); }
     }
 
