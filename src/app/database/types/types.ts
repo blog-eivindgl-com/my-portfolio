@@ -41,6 +41,8 @@ export interface IStockPrice {
 }
 
 export interface IPriceList {
+    // Transient calculation metadata; never stored in a quote record.
+    observations?: Record<number, { id: string; source: 'quote' | 'transaction' }>,
     instrumentId: string,
     [date: number]: number
 }

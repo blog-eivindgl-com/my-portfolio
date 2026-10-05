@@ -13,6 +13,8 @@ export default class TransactionViewModel {
         this._realizedWin = undefined; // Will be replaced with actual win/loss when shares are sold
     }
     
+    calculationUnavailable?: boolean;
+    calculationStatus?: string;
     [key: string]: any
 
     get date(): string {
@@ -26,6 +28,8 @@ export default class TransactionViewModel {
     get description(): string {
         return this.transaction.description;
     }
+
+    get accountId(): string { return this.transaction.accountId; }
 
     get buy(): number | undefined {
         if (this.transaction.type === TransactionType.buy) {

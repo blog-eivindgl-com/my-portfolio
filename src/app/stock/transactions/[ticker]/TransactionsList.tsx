@@ -12,6 +12,8 @@ type Props = {
 const TransactionsList: FC<Props> = ({vm}: Props) => {
     const orderUnknown = vm.orderWarnings.length > 0;
     const columns = [
+        { key: 'calculationStatus', label: 'Calculation' },
+        { key: 'accountId', label: 'Account ID' },
         { key: 'actions', label: 'Actions' },
         { key: 'tradeTime', label: 'Trade time' },
         { key: 'tradeOrder', label: 'Retained trade order' },
@@ -53,7 +55,7 @@ const TransactionsList: FC<Props> = ({vm}: Props) => {
         },
         {
             key: 'worth',
-            label: 'Worth'
+            label: 'Remaining cost'
         },
         {
             key: 'accumulatedBrokerage',
@@ -69,8 +71,9 @@ const TransactionsList: FC<Props> = ({vm}: Props) => {
         }
     ]
     const renderCell = (vm: TransactionViewModel, columnKey: Key) => {
-        if (orderUnknown && ['averagePrice', 'sharesLeft', 'worth', 'accumulatedBrokerage', 'unrealizedWin', 'realizedWin'].includes(String(columnKey))) return 'Unknown';
+        if ((vm.calculationUnavailable ?? orderUnknown) && ['averagePrice', 'sharesLeft', 'worth', 'accumulatedBrokerage', 'unrealizedWin', 'realizedWin'].includes(String(columnKey))) return 'Unknown';
         const cellValue = vm[columnKey];
+        if (typeof cellValue === 'number' && !Number.isFinite(cellValue)) return 'Unknown';
         switch (columnKey) {
             case 'actions':
                 return <a href={`/stock/transactions/${encodeURIComponent(vm.transaction.instrumentId)}/edit/${encodeURIComponent(vm.transaction.id)}`}>Edit / delete</a>;

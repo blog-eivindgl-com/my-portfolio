@@ -20,10 +20,18 @@ const Summary: FC<Props> = ({vm}: Props) => {
     if (vm.orderWarning) return <Container><p role="alert">{vm.orderWarning}</p></Container>;
     return (
         <Container>
+            {vm.incompleteReason && <p role="status">{vm.incompleteReason}</p>}
+            {vm.valuationNote && <p>{vm.valuationNote}</p>}
+            {!vm.valuationNote && vm.currentPrice !== undefined && <p>
+                {vm.currentPriceSource === 'quote' ? 'Recorded quote' : vm.currentPriceSource === 'transaction' ? 'Transaction-price estimate (not a market quote)' : 'Price with unspecified source'}
+                {' · '}{vm.currentPriceAgeDays} days old. No freshness threshold has been configured.
+            </p>}
+            {!vm.valuationNote && vm.currentPrice === undefined && (vm.currentSharesLeft || 0) > 0 && <p role="status">No eligible price is available. Market value and unrealized gain are unknown.</p>}
             <Grid.Container gap={2}>
                 <Row>
                     <SummaryItem title="Realized win" value={vm.totalRealizedWin} showAsRedOrGreen />
-                    <SummaryItem title="Unrealized win" value={vm.currentUnrealizedWin || 0} showAsRedOrGreen />
+                    <SummaryItem title="Unrealized win" value={vm.currentSharesLeft === 0 ? 0 : vm.currentUnrealizedWin} showAsRedOrGreen />
+                    <SummaryItem title="Pending fees" value={vm.pendingFees} />
                     <SummaryItem title="Investment" value={vm.currentInvestment} />
                     <SummaryItem title="Shares" value={vm.currentSharesLeft} />
                     <SummaryItem title={createPriceLabel(vm.currentPriceUpdated)} value={vm.currentPrice} />
